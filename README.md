@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:promise:v1.0.0'
+    implementation 'com.github.qw623577789:ytk-java-promise:v1.0.0'
     annotationProcessor 'io.github.vipcxj:jasync-core:0.1.3'
     testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.3'
 }
