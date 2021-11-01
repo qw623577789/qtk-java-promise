@@ -102,8 +102,11 @@ public class Promise {
     }
 
     public static JPromise<List<Object>> all(JPromise<?>... promises) {
-        Uni<List<Object>> promiseAll = Arrays
-            .asList(promises)
+        return all(Arrays.asList(promises));
+    }
+
+    public static JPromise<List<Object>> all(List<JPromise<?>> promises) {
+        Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
                 Uni.join().builder(),
@@ -120,10 +123,13 @@ public class Promise {
         return Promises.from(promiseAll);
     }
 
-    @SuppressWarnings("unchecked")
     public static JPromise<List<Object>> allSettled(JPromise<?>... promises) {
-        Uni<List<Object>> promiseAll = Arrays
-            .asList(promises)
+        return allSettled(Arrays.asList(promises));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static JPromise<List<Object>> allSettled(List<JPromise<?>> promises) {
+        Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
                 Uni.join().builder(),
@@ -143,8 +149,11 @@ public class Promise {
     }
 
     public static JPromise<Object> race(JPromise<?>... promises) {
-        Uni<Object> promiseRace = Arrays
-            .asList(promises)
+        return race(Arrays.asList(promises));
+    }
+
+    public static JPromise<Object> race(List<JPromise<?>> promises) {
+        Uni<Object> promiseRace = promises
             .stream()
             .reduce(
                 Uni.join().builder(),
@@ -161,8 +170,11 @@ public class Promise {
     }
 
     public static JPromise<Object> any(JPromise<?>... promises) {
-        Uni<Object> promiseRace = Arrays
-            .asList(promises)
+        return any(Arrays.asList(promises));
+    }
+
+    public static JPromise<Object> any(List<JPromise<?>> promises) {
+        Uni<Object> promiseRace = promises
             .stream()
             .reduce(
                 Uni.join().builder(),
