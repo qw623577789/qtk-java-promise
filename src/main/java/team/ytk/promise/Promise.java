@@ -101,11 +101,12 @@ public class Promise {
         return JAsync.defer(() -> JAsync.just(deferFunc.get()));
     }
 
-    public static JPromise<List<Object>> all(JPromise<?>... promises) {
+    @SafeVarargs
+    public static JPromise<List<Object>> all(JPromise<? extends Object>... promises) {
         return all(Arrays.asList(promises));
     }
 
-    public static JPromise<List<Object>> all(List<JPromise<?>> promises) {
+    public static <T> JPromise<List<Object>> all(List<JPromise<? extends Object>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -123,12 +124,13 @@ public class Promise {
         return Promises.from(promiseAll);
     }
 
-    public static JPromise<List<Object>> allSettled(JPromise<?>... promises) {
+    @SafeVarargs
+    public static JPromise<List<Object>> allSettled(JPromise<? extends Object>... promises) {
         return allSettled(Arrays.asList(promises));
     }
 
     @SuppressWarnings("unchecked")
-    public static JPromise<List<Object>> allSettled(List<JPromise<?>> promises) {
+    public static JPromise<List<Object>> allSettled(List<JPromise<? extends Object>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -148,11 +150,12 @@ public class Promise {
         return Promises.from(promiseAll);
     }
 
-    public static JPromise<Object> race(JPromise<?>... promises) {
+    @SafeVarargs
+    public static JPromise<Object> race(JPromise<? extends Object>... promises) {
         return race(Arrays.asList(promises));
     }
 
-    public static JPromise<Object> race(List<JPromise<?>> promises) {
+    public static JPromise<Object> race(List<JPromise<? extends Object>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -169,11 +172,12 @@ public class Promise {
         return Promises.from(promiseRace);
     }
 
-    public static JPromise<Object> any(JPromise<?>... promises) {
+    @SafeVarargs
+    public static JPromise<Object> any(JPromise<? extends Object>... promises) {
         return any(Arrays.asList(promises));
     }
 
-    public static JPromise<Object> any(List<JPromise<?>> promises) {
+    public static JPromise<Object> any(List<JPromise<? extends Object>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
