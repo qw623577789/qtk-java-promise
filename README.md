@@ -13,8 +13,10 @@ repositories {
 
 dependencies {
     implementation 'com.github.qw623577789:ytk-java-promise:v1.0.0'
-    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.3'
-    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.3'
+    implementation 'io.github.vipcxj:jasync-core:0.1.4'
+    implementation 'io.smallrye.reactive:mutiny:1.1.1'
+    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.4'
+    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.4'
 }
 ```
 
