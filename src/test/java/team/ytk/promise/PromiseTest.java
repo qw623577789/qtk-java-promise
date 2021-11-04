@@ -4,7 +4,6 @@
 package team.ytk.promise;
 
 import io.github.vipcxj.jasync.spec.JPromise;
-import io.github.vipcxj.jasync.spec.annotations.Async;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -18,13 +17,20 @@ import java.util.ArrayList;
 import java.util.List;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+import team.ytk.promise.Promise.RunOn;
 
 @ExtendWith(VertxExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PromiseTest {
+
+    @BeforeAll
+    void setPromiseRunMode(Vertx vertx) {
+        Promise.setVertx(vertx);
+    }
 
     @Test
     void resolveInteger() {
@@ -52,7 +58,7 @@ class PromiseTest {
     }
 
     @Test
-    void resolveFutureSuccess() {
+    void resolveFutureSuccess(Vertx vertx) {
         Assertions.assertEquals(Promise.resolve(Future.succeededFuture(null)).block(), null);
     }
 
@@ -91,6 +97,8 @@ class PromiseTest {
 
     @Test
     void resolveConsumerHandler() {
+        Promise.<Long>resolve(doneCallback -> Vertx.vertx().setTimer(3000, doneCallback)).block();
+
         Long start = System.currentTimeMillis();
         Long[] timerIds = { 999l };
         Long timerId = Promise
@@ -205,7 +213,8 @@ class PromiseTest {
     }
 
     @Test
-    void resolvePromiseAllSettleError(Vertx vertx) {
+    void resolvePromiseAllSettleError() {
+        Vertx vertx = Vertx.vertx();
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
         vertx.setTimer(3000, timerId -> sleep1.complete(timerId));
@@ -226,7 +235,8 @@ class PromiseTest {
     }
 
     @Test
-    void resolvePromiseRace(Vertx vertx) {
+    void resolvePromiseRace() {
+        Vertx vertx = Vertx.vertx();
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
         vertx.setTimer(3000, timerId -> sleep1.complete(timerId));
@@ -238,7 +248,7 @@ class PromiseTest {
             .race(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
             .block();
         Long end = System.currentTimeMillis();
-        System.out.println(start + ":" + end + ":" + timerId);
+        System.out.println("!!!!" + start + ":" + end + ":" + timerId);
         Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId == 0);
     }
 
@@ -347,13 +357,30 @@ class PromiseTest {
     }
 
     @Test
-    void defer() {
+    void deferResolve() {
         try {
             Long start = System.currentTimeMillis();
-            JPromise<Long> p = Promise.defer(() -> System.currentTimeMillis());
+            JPromise<Long> p = Promise.deferResolve(() -> System.currentTimeMillis());
             Thread.sleep(1000);
             Long end = p.block();
             Assertions.assertTrue(end - start > 900);
+        } catch (Exception error) {
+            Assertions.assertTrue(false);
+        }
+    }
+
+    @Test
+    void deferResolvePromise(Vertx vertx) {
+        try {
+            io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+            vertx.setTimer(5000, timerId -> sleep1.complete (timerId));
+
+            Long start = System.currentTimeMillis();
+            JPromise<Long> p = Promise.deferPromiseResolve(() -> Promise.resolve(sleep1.future()));
+            Thread.sleep(1000);
+            p.block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(end - start > 4900 && end - start < 5500);
         } catch (Exception error) {
             Assertions.assertTrue(false);
         }
@@ -383,7 +410,8 @@ class PromiseTest {
 
     @Test
     @SneakyThrows
-    void then(Vertx vertx, VertxTestContext testContext) {
+    void then(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
         vertx.setTimer(3000, timerId -> sleep1.complete(timerId));
@@ -458,5 +486,133 @@ class PromiseTest {
                 }
             )
             .async();
+    }
+
+    @Test
+    void resolveRunOnCurrentThread(Vertx vertx, VertxTestContext testContext) {
+        Promise
+            .deferResolve(
+                RunOn.CONTENT_THREAD,
+                () -> {
+                    if (Thread.currentThread().getName().indexOf("main") == -1) {
+                        testContext.failNow("运行的线程错误");
+                    } else {
+                        testContext.completeNow();
+                    }
+
+                    System.out.println(Thread.currentThread().getName());
+                    return null;
+                }
+            )
+            .block();
+    }
+
+    @Test
+    void resolveRunOnEventLoopThread(Vertx vertx, VertxTestContext testContext) {
+        Promise
+            .deferResolve(
+                RunOn.VERTX_EVENT_LOOP_THREAD,
+                () -> {
+                    if (Thread.currentThread().getName().indexOf("eventloop") == -1) {
+                        testContext.failNow("运行的线程错误");
+                    } else {
+                        testContext.completeNow();
+                    }
+
+                    System.out.println(Thread.currentThread().getName());
+                    return null;
+                }
+            )
+            .block();
+    }
+
+    @Test
+    void resolveRunOnWorkerThread(Vertx vertx, VertxTestContext testContext) {
+        Promise
+            .deferResolve(
+                RunOn.VERTX_WORKER_THREAD,
+                () -> {
+                    if (Thread.currentThread().getName().indexOf("worker") == -1) {
+                        testContext.failNow("运行的线程错误");
+                    } else {
+                        testContext.completeNow();
+                    }
+
+                    System.out.println(Thread.currentThread().getName());
+                    return null;
+                }
+            )
+            .block();
+    }
+
+    @Test
+    void resolveRunOnWorkerThreadThen(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(2);
+        Promise
+            .resolve(RunOn.VERTX_WORKER_THREAD, 1)
+            .then(
+                resolver -> {
+                    if (Thread.currentThread().getName().indexOf("worker") != -1) checkpoint.flag();
+                    return Promise.resolve();
+                }
+            )
+            .then(
+                resolver -> {
+                    if (Thread.currentThread().getName().indexOf("worker") != -1) checkpoint.flag();
+                    return Promise.resolve();
+                }
+            )
+            .block();
+        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
+            testContext.failNow("线程运行错误");
+        } else {
+            testContext.completeNow();
+        }
+    }
+
+    @Test
+    void changeFutureThreadFail(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(1);
+
+        Future<Void> future = Future.future(
+            handler -> {
+                if (Thread.currentThread().getName().indexOf("main") != -1) checkpoint.flag();
+                handler.complete();
+            }
+        );
+
+        Promise.resolve(RunOn.VERTX_EVENT_LOOP_THREAD, future).block();
+
+        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
+            testContext.failNow("线程运行错误");
+        } else {
+            testContext.completeNow();
+        }
+    }
+
+    @Test
+    void changeFutureThreadSuccess(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(1);
+
+        Promise
+            .deferPromiseResolve(
+                RunOn.VERTX_WORKER_THREAD,
+                () -> {
+                    Future<Void> future = Future.future(
+                        handler -> {
+                            if (Thread.currentThread().getName().indexOf("worker") != -1) checkpoint.flag();
+                            handler.complete();
+                        }
+                    );
+                    return Promise.resolve(future);
+                }
+            )
+            .block();
+
+        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
+            testContext.failNow("线程运行错误");
+        } else {
+            testContext.completeNow();
+        }
     }
 }

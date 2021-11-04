@@ -3,110 +3,354 @@
  */
 package team.ytk.promise;
 
-import io.github.vipcxj.jasync.spec.JAsync;
 import io.github.vipcxj.jasync.spec.JPromise;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
+import io.vertx.core.Vertx;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import lombok.NonNull;
+import lombok.SneakyThrows;
 import team.ytk.jasync.mutiny.Promises;
 
 public class Promise {
 
-    public static <T> JPromise<T> resolve(T value) {
-        return JAsync.just(value);
+    private static Executor vertxEventLoopExecutor;
+    private static Executor vertxWorkerExecutor;
+
+    /**
+     * 使用Vertx实例来管理异步执行线程
+     * @param vertx
+     */
+    public static void setVertx(Vertx vertx) {
+        Promise.vertxEventLoopExecutor = new VertxExecutor(vertx);
+        Promise.vertxWorkerExecutor = new VertxWorkerExecutor(vertx);
     }
 
-    public static <T> JPromise<T> resolve(Future<T> future) {
-        return Promises.from(
-            Uni
-                .createFrom()
-                .emitter(
-                    emitter -> {
-                        future.onComplete(
-                            h -> {
-                                if (h.succeeded()) {
-                                    emitter.complete(h.result());
-                                } else {
-                                    emitter.fail(h.cause());
-                                }
-                            }
-                        );
-                    }
-                )
-        );
-    }
-
-    public static <T> JPromise<List<T>> resolve(CompositeFuture future) {
-        return Promises.from(
-            Uni
-                .createFrom()
-                .emitter(
-                    emitter -> {
-                        future.onComplete(
-                            h -> {
-                                if (h.succeeded()) {
-                                    emitter.complete(h.result().<T>list());
-                                } else {
-                                    emitter.fail(h.cause());
-                                }
-                            }
-                        );
-                    }
-                )
-        );
-    }
-
-    public static <T> JPromise<T> resolve(Consumer<Handler<T>> consumer) {
-        return Promises.from(
-            Uni
-                .createFrom()
-                .emitter(
-                    emitter -> {
-                        consumer.accept(
-                            h -> {
-                                emitter.complete(h);
-                            }
-                        );
-                    }
-                )
-        );
-    }
-
-    public static <T> JPromise<T> resolve(Uni<T> value) {
-        return Promises.from(value);
-    }
-
+    /**
+     * 【当前线程】异步返回null
+     * @return
+     */
     public static JPromise<Void> resolve() {
-        return JAsync.just();
+        return resolve(RunOn.CONTENT_THREAD);
     }
 
-    public static <T> JPromise<T> reject(Throwable t) {
-        return JAsync.error(t);
+    /**
+     * 【当前线程】异步返回同步对象
+     * @param <T>
+     * @param value
+     * @return
+     */
+    public static <T> JPromise<T> resolve(T value) {
+        return resolve(RunOn.CONTENT_THREAD, value);
     }
 
-    public static <T> JPromise<T> reject() {
-        return JAsync.error(new RuntimeException("reject"));
+    /**
+     * 【当前线程】异步等待Vertx.Future返回
+     * Vertx.Future在是一旦定义就立即触发，所以其执行不一定是在【当前线程】
+     * 若想指定Vertx.Future执行线程请使Promise.deferPromise(() -> Promise.resolve(Vertx.Future))
+     * @param <T>
+     * @param future
+     * @return
+     */
+    @SneakyThrows
+    public static <T> JPromise<T> resolve(Future<T> future) {
+        Uni<T> uni = Uni
+            .createFrom()
+            .<T>emitter(
+                emitter -> {
+                    future.onComplete(
+                        h -> {
+                            if (h.succeeded()) {
+                                emitter.complete(h.result());
+                            } else {
+                                emitter.fail(h.cause());
+                            }
+                        }
+                    );
+                }
+            );
+
+        return resolve(RunOn.CONTENT_THREAD, uni);
     }
 
-    public static <T> JPromise<T> reject(String errorMessage) {
-        return JAsync.error(new RuntimeException(errorMessage));
+    /**
+     * 【当前线程】异步等待Vertx.CompositeFuture返回，并将每个Vertx.Future结果按顺序放入List
+     * 若想指定Vertx.CompositeFuture执行线程请使Promise.deferPromise(() -> Promise.resolve(Vertx.CompositeFuture))
+     * @param <T>
+     * @param future
+     * @return
+     */
+    @SneakyThrows
+    public static <T> JPromise<List<T>> resolve(CompositeFuture future) {
+        Uni<List<T>> uni = Uni
+            .createFrom()
+            .emitter(
+                emitter -> {
+                    future.onComplete(
+                        h -> {
+                            if (h.succeeded()) {
+                                emitter.complete(h.result().<T>list());
+                            } else {
+                                emitter.fail(h.cause());
+                            }
+                        }
+                    );
+                }
+            );
+
+        return resolve(RunOn.CONTENT_THREAD, uni);
     }
 
-    public static <T> JPromise<T> defer(Supplier<T> deferFunc) {
-        return JAsync.defer(() -> JAsync.just(deferFunc.get()));
+    /**
+     * 【当前线程】包装一个lamda函数，当传入的参数(一个方法(Vertx.Handler))被调用时，返回结果值
+     *  例如:Promise.<Long>resolve(doneCallback ->  Vertx.vertx().setTimer(3000, doneCallback))
+     * @param <T>
+     * @param consumer
+     * @return
+     */
+    public static <T> JPromise<T> resolve(Consumer<Handler<T>> consumer) {
+        return resolve(RunOn.CONTENT_THREAD, consumer);
     }
 
+    /**
+     * 【当前线程】异步等待Uni异步执行返回
+     * @param <T>
+     * @param value
+     * @return
+     */
+    public static <T> JPromise<T> resolve(Uni<T> value) {
+        return resolve(RunOn.CONTENT_THREAD, value);
+    }
+
+    @SneakyThrows
+    public static <T> JPromise<T> resolve(RunOn runOn, T value) {
+        Uni<T> uni = Uni.createFrom().item(value);
+
+        return resolve(runOn, uni);
+    }
+
+    /**
+     * 【指定线程】包装一个lamda函数，当传入的参数(一个方法(Vertx.Handler))被调用时，返回结果值
+     *  例如:Promise.<Long>resolve(doneCallback ->  Vertx.vertx().setTimer(3000, doneCallback))
+     * @param <T>
+     * @param consumer
+     * @return
+     */
+    public static <T> JPromise<T> resolve(RunOn runOn, Consumer<Handler<T>> consumer) {
+        Uni<T> uni = Uni
+            .createFrom()
+            .emitter(
+                emitter -> {
+                    consumer.accept(
+                        h -> {
+                            emitter.complete(h);
+                        }
+                    );
+                }
+            );
+
+        return resolve(runOn, uni);
+    }
+
+    /**
+     * 【指定线程】异步等待Uni异步执行返回
+     * @param <T>
+     * @param value
+     * @return
+     */
+    public static <T> JPromise<T> resolve(RunOn runOn, Uni<T> value) {
+        Uni<T> uni = Uni.createFrom().voidItem().onItem().transformToUni(v -> value);
+
+        return Promises.from(chooseRunningThread(uni, runOn));
+    }
+
+    /**
+     * 【指定线程】异步返回同步对象
+     * @param runOn
+     * @return
+     */
+    public static JPromise<Void> resolve(RunOn runOn) {
+        Uni<Void> uni = Uni.createFrom().voidItem();
+        return resolve(runOn, uni);
+    }
+
+    /**
+     * 【当前线程】抛出自定义错误
+     * @param <T>
+     * @param t
+     * @return
+     */
+    public static <T extends Throwable> JPromise<T> reject(T t) {
+        return reject(RunOn.CONTENT_THREAD, t);
+    }
+
+    /**
+     * 【当前线程】抛出RuntimeException("reject")错误
+     * @return
+     */
+    public static JPromise<RuntimeException> reject() {
+        return reject(RunOn.CONTENT_THREAD);
+    }
+
+    /**
+     * 【当前线程】抛出RuntimeException(errorMessage)错误
+     */
+    public static JPromise<RuntimeException> reject(String errorMessage) {
+        return reject(RunOn.CONTENT_THREAD, new RuntimeException(errorMessage));
+    }
+
+    /**
+     * 【指定线程】抛出RuntimeException("reject")错误
+     * @param runOn
+     * @return
+     */
+    public static JPromise<RuntimeException> reject(RunOn runOn) {
+        return reject(runOn, new RuntimeException("reject"));
+    }
+
+    /**
+     * 【指定线程】抛出RuntimeException(errorMessage)错误
+     * @param runOn
+     * @param errorMessage
+     * @return
+     */
+    public static JPromise<RuntimeException> reject(RunOn runOn, String errorMessage) {
+        return reject(runOn, new RuntimeException(errorMessage));
+    }
+
+    /**
+     * 【指定线程】抛出自定义错误
+     * @param <T>
+     * @param runOn
+     * @param t
+     * @return
+     */
+    public static <T extends Throwable> JPromise<T> reject(RunOn runOn, T t) {
+        Uni<T> uni = Uni.createFrom().failure(t);
+        return resolve(runOn, uni);
+    }
+
+    /**
+     * 【当前线程】惰性resolve模式(异步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * @param <T>
+     * @param deferFunc
+     * @return
+     */
+    public static <T> JPromise<T> deferPromiseResolve(Supplier<JPromise<T>> deferFunc) {
+        Uni<T> uni = Uni
+            .createFrom()
+            .deferred(
+                () -> {
+                    try {
+                        return deferFunc.get().unwrap(Uni.class);
+                    } catch (Throwable t) {
+                        return Uni.createFrom().failure(t);
+                    }
+                }
+            );
+
+        return resolve(RunOn.CONTENT_THREAD, uni);
+    }
+
+    /**
+     *【指定线程】惰性resolve模式(异步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * @param <T>
+     * @param deferFunc
+     * @return
+     */
+    public static <T> JPromise<T> deferPromiseResolve(RunOn runOn, Supplier<JPromise<T>> deferFunc) {
+        Uni<T> uni = Uni
+            .createFrom()
+            .deferred(
+                () -> {
+                    try {
+                        return deferFunc.get().unwrap(Uni.class);
+                    } catch (Throwable t) {
+                        return Uni.createFrom().failure(t);
+                    }
+                }
+            );
+
+        return resolve(runOn, uni);
+    }
+
+    /**
+     *【当前线程】惰性resolve模式(同步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * @param <T>
+     * @param deferFunc
+     * @return
+     */
+    public static <T> JPromise<T> deferResolve(Supplier<T> deferFunc) {
+        return deferResolve(RunOn.CONTENT_THREAD, deferFunc);
+    }
+
+    /**
+     *【当前线程】惰性resolve模式(同步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * @param <T>
+     * @param deferFunc
+     * @return
+     */
+    public static <T> JPromise<T> deferResolve(RunOn runOn, Supplier<T> deferFunc) {
+        Uni<T> uni = Uni
+            .createFrom()
+            .deferred(
+                () -> {
+                    try {
+                        return Uni.createFrom().item(deferFunc.get());
+                    } catch (Throwable t) {
+                        return Uni.createFrom().failure(t);
+                    }
+                }
+            );
+
+        return resolve(runOn, uni);
+    }
+
+    /**
+     *【当前线程】并发执行多个Promise，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     * @param promises
+     * @return
+     */
     @SafeVarargs
     public static JPromise<List<Object>> all(JPromise<? extends Object>... promises) {
         return all(Arrays.asList(promises));
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     * @param promises
+     * @return
+     */
     public static <T> JPromise<List<Object>> all(List<JPromise<? extends Object>> promises) {
+        return all(RunOn.CONTENT_THREAD, promises);
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     * @param promises
+     * @return
+     */
+    @SafeVarargs
+    public static JPromise<List<Object>> all(RunOn runOn, JPromise<? extends Object>... promises) {
+        return all(runOn, Arrays.asList(promises));
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     * @param promises
+     * @return
+     */
+    public static <T> JPromise<List<Object>> all(RunOn runOn, List<JPromise<? extends Object>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -121,16 +365,49 @@ public class Promise {
             .joinAll()
             .andFailFast();
 
-        return Promises.from(promiseAll);
+        return resolve(runOn, promiseAll);
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     * @param promises
+     * @return
+     */
     @SafeVarargs
     public static JPromise<List<Object>> allSettled(JPromise<? extends Object>... promises) {
         return allSettled(Arrays.asList(promises));
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     *【当前线程】并发执行多个Promise，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     * @param promises
+     * @return
+     */
     public static JPromise<List<Object>> allSettled(List<JPromise<? extends Object>> promises) {
+        return allSettled(RunOn.CONTENT_THREAD, promises);
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     * @param promises
+     * @return
+     */
+    @SafeVarargs
+    public static JPromise<List<Object>> allSettled(RunOn runOn, JPromise<? extends Object>... promises) {
+        return allSettled(runOn, Arrays.asList(promises));
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     * @param promises
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+    public static JPromise<List<Object>> allSettled(RunOn runOn, List<JPromise<? extends Object>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -147,15 +424,44 @@ public class Promise {
             .joinAll()
             .andCollectFailures();
 
-        return Promises.from(promiseAll);
+        return resolve(runOn, promiseAll);
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     * @param promises
+     * @return
+     */
     @SafeVarargs
     public static JPromise<Object> race(JPromise<? extends Object>... promises) {
         return race(Arrays.asList(promises));
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     * @param promises
+     * @return
+     */
     public static JPromise<Object> race(List<JPromise<? extends Object>> promises) {
+        return race(RunOn.CONTENT_THREAD, promises);
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     * @param promises
+     * @return
+     */
+    @SafeVarargs
+    public static JPromise<Object> race(RunOn runOn, JPromise<? extends Object>... promises) {
+        return race(runOn, Arrays.asList(promises));
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     * @param promises
+     * @return
+     */
+    public static JPromise<Object> race(RunOn runOn, List<JPromise<? extends Object>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -169,15 +475,44 @@ public class Promise {
             .joinFirst()
             .toTerminate();
 
-        return Promises.from(promiseRace);
+        return resolve(runOn, promiseRace);
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+     * @param promises
+     * @return
+     */
     @SafeVarargs
     public static JPromise<Object> any(JPromise<? extends Object>... promises) {
         return any(Arrays.asList(promises));
     }
 
+    /**
+     *【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+     * @param promises
+     * @return
+     */
     public static JPromise<Object> any(List<JPromise<? extends Object>> promises) {
+        return any(RunOn.CONTENT_THREAD, promises);
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+     * @param promises
+     * @return
+     */
+    @SafeVarargs
+    public static JPromise<Object> any(RunOn runOn, JPromise<? extends Object>... promises) {
+        return any(runOn, Arrays.asList(promises));
+    }
+
+    /**
+     *【指定线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+     * @param promises
+     * @return
+     */
+    public static JPromise<Object> any(RunOn runOn, List<JPromise<? extends Object>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -191,6 +526,61 @@ public class Promise {
             .joinFirst()
             .withItem();
 
-        return Promises.from(promiseRace);
+        return resolve(runOn, promiseRace);
+    }
+
+    private static <T> Uni<T> chooseRunningThread(Uni<T> uni, RunOn runOn) {
+        if (runOn == RunOn.CONTENT_THREAD) {} else if (runOn == RunOn.VERTX_EVENT_LOOP_THREAD) {
+            uni = uni.runSubscriptionOn(Promise.vertxEventLoopExecutor);
+        } else if (runOn == RunOn.VERTX_WORKER_THREAD) {
+            uni = uni.runSubscriptionOn(Promise.vertxWorkerExecutor);
+        } else {
+            throw new RuntimeException("no support runOn mode:" + runOn.name());
+        }
+        return uni;
+    }
+
+    public enum RunOn {
+        /**
+         * 当前线程
+         */
+        CONTENT_THREAD,
+        /**
+         * Vertx事件循环线程
+         */
+        VERTX_EVENT_LOOP_THREAD,
+
+        /**
+         * Vertx工作线程
+         */
+        VERTX_WORKER_THREAD,
+    }
+
+    private static final class VertxExecutor implements Executor {
+
+        private final Vertx vertx;
+
+        public VertxExecutor(@NonNull Vertx vertx) {
+            this.vertx = vertx;
+        }
+
+        @Override
+        public void execute(@NonNull Runnable command) {
+            vertx.runOnContext(v -> command.run());
+        }
+    }
+
+    private static final class VertxWorkerExecutor implements Executor {
+
+        private final Vertx vertx;
+
+        public VertxWorkerExecutor(@NonNull Vertx vertx) {
+            this.vertx = vertx;
+        }
+
+        @Override
+        public void execute(@NonNull Runnable command) {
+            vertx.executeBlocking(v -> command.run());
+        }
     }
 }
