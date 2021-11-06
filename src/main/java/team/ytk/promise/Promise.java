@@ -319,7 +319,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<List<Object>> all(JPromise<? extends Object>... promises) {
+    public static JPromise<List<Object>> all(JPromise<?>... promises) {
         return all(Arrays.asList(promises));
     }
 
@@ -329,7 +329,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static <T> JPromise<List<Object>> all(List<JPromise<? extends Object>> promises) {
+    public static JPromise<List<Object>> all(List<JPromise<?>> promises) {
         return all(RunOn.CONTENT_THREAD, promises);
     }
 
@@ -340,7 +340,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<List<Object>> all(RunOn runOn, JPromise<? extends Object>... promises) {
+    public static JPromise<List<Object>> all(RunOn runOn, JPromise<?>... promises) {
         return all(runOn, Arrays.asList(promises));
     }
 
@@ -350,7 +350,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static <T> JPromise<List<Object>> all(RunOn runOn, List<JPromise<? extends Object>> promises) {
+    public static JPromise<List<Object>> all(RunOn runOn, List<JPromise<?>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -375,7 +375,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<List<Object>> allSettled(JPromise<? extends Object>... promises) {
+    public static JPromise<List<Object>> allSettled(JPromise<?>... promises) {
         return allSettled(Arrays.asList(promises));
     }
 
@@ -385,7 +385,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static JPromise<List<Object>> allSettled(List<JPromise<? extends Object>> promises) {
+    public static JPromise<List<Object>> allSettled(List<JPromise<?>> promises) {
         return allSettled(RunOn.CONTENT_THREAD, promises);
     }
 
@@ -396,7 +396,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<List<Object>> allSettled(RunOn runOn, JPromise<? extends Object>... promises) {
+    public static JPromise<List<Object>> allSettled(RunOn runOn, JPromise<?>... promises) {
         return allSettled(runOn, Arrays.asList(promises));
     }
 
@@ -407,7 +407,7 @@ public class Promise {
      * @return
      */
     @SuppressWarnings("unchecked")
-    public static JPromise<List<Object>> allSettled(RunOn runOn, List<JPromise<? extends Object>> promises) {
+    public static JPromise<List<Object>> allSettled(RunOn runOn, List<JPromise<?>> promises) {
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -433,7 +433,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<Object> race(JPromise<? extends Object>... promises) {
+    public static JPromise<Object> race(JPromise<?>... promises) {
         return race(Arrays.asList(promises));
     }
 
@@ -442,7 +442,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static JPromise<Object> race(List<JPromise<? extends Object>> promises) {
+    public static JPromise<Object> race(List<JPromise<?>> promises) {
         return race(RunOn.CONTENT_THREAD, promises);
     }
 
@@ -452,7 +452,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<Object> race(RunOn runOn, JPromise<? extends Object>... promises) {
+    public static JPromise<Object> race(RunOn runOn, JPromise<?>... promises) {
         return race(runOn, Arrays.asList(promises));
     }
 
@@ -461,7 +461,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static JPromise<Object> race(RunOn runOn, List<JPromise<? extends Object>> promises) {
+    public static JPromise<Object> race(RunOn runOn, List<JPromise<?>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -484,7 +484,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<Object> any(JPromise<? extends Object>... promises) {
+    public static JPromise<Object> any(JPromise<?>... promises) {
         return any(Arrays.asList(promises));
     }
 
@@ -493,7 +493,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static JPromise<Object> any(List<JPromise<? extends Object>> promises) {
+    public static JPromise<Object> any(List<JPromise<?>> promises) {
         return any(RunOn.CONTENT_THREAD, promises);
     }
 
@@ -503,7 +503,7 @@ public class Promise {
      * @return
      */
     @SafeVarargs
-    public static JPromise<Object> any(RunOn runOn, JPromise<? extends Object>... promises) {
+    public static JPromise<Object> any(RunOn runOn, JPromise<?>... promises) {
         return any(runOn, Arrays.asList(promises));
     }
 
@@ -512,7 +512,7 @@ public class Promise {
      * @param promises
      * @return
      */
-    public static JPromise<Object> any(RunOn runOn, List<JPromise<? extends Object>> promises) {
+    public static JPromise<Object> any(RunOn runOn, List<JPromise<?>> promises) {
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(

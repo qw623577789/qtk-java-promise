@@ -15,6 +15,7 @@ import io.vertx.junit5.VertxTestContext;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -373,7 +374,7 @@ class PromiseTest {
     void deferResolvePromise(Vertx vertx) {
         try {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
-            vertx.setTimer(5000, timerId -> sleep1.complete (timerId));
+            vertx.setTimer(5000, timerId -> sleep1.complete(timerId));
 
             Long start = System.currentTimeMillis();
             JPromise<Long> p = Promise.deferPromiseResolve(() -> Promise.resolve(sleep1.future()));
