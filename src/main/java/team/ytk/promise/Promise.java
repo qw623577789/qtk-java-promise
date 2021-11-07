@@ -4,6 +4,7 @@
 package team.ytk.promise;
 
 import io.github.vipcxj.jasync.spec.JPromise;
+import io.github.vipcxj.jasync.spec.functional.PromiseSupplier;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
@@ -48,6 +49,28 @@ public class Promise {
      */
     public static <T> JPromise<T> resolve(T value) {
         return resolve(RunOn.CONTENT_THREAD, value);
+    }
+
+    /**
+     * 【当前线程】执行异步函数
+     * 等同于Promise.resolve().then(promiseSupplier)
+     * @param <T>
+     * @param value
+     * @return
+     */
+    public static <T> JPromise<T> resolve(PromiseSupplier<T> promiseSupplier) {
+        return resolve(RunOn.CONTENT_THREAD).then(promiseSupplier);
+    }
+
+    /**
+     * 【当前线程】异步执行异步函数
+     * 等同于Promise.resolve().then(promiseSupplier)
+     * @param <T>
+     * @param value
+     * @return
+     */
+    public static <T> JPromise<T> resolve(RunOn runOn, PromiseSupplier<T> promiseSupplier) {
+        return resolve(runOn).then(promiseSupplier);
     }
 
     /**

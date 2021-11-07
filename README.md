@@ -35,6 +35,7 @@ dependencies {
 
 - **JPromise\<Void> resolve()** 包装null值的Promise
 - **JPromise\<T> resolve(T value)** 包装对象成Promise
+- ***JPromise\<T> resolve(PromiseSupplier\<T> promiseSupplier)** 包装异步函数,作用等同于``Promise.resolve().then(() -> promiseSupplier)``
 - **JPromise\<T> resolve(Future\<T> future)** 将[Vertx.Future](https://vertx.io/docs/vertx-core/java/#_future_results)异步对象包装成Promise,并可等待获取结果值
 - **JPromise<List\<T>> resolve(CompositeFuture future)** 将[Vertx.CompositeFuture](https://vertx.io/docs/vertx-core/java/#_future_coordination)【vertx下的promise.all/race/any/join功能的实现】异步对象包装成Promise,并可依次返回结果
 - **JPromise\<T> resolve(Consumer<Handler\<T>> consumer)** 包装一个lamda函数，当传入的参数(是一个方法)被调用时，返回结果值
