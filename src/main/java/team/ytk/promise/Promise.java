@@ -261,11 +261,12 @@ public class Promise {
 
     /**
      * 【当前线程】惰性resolve模式(异步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * 注意此方法里不支持await!!!!
      * @param <T>
      * @param deferFunc
      * @return
      */
-    public static <T> JPromise<T> deferPromiseResolve(Supplier<JPromise<T>> deferFunc) {
+    public static <T> JPromise<T> deferPromiseResolve(PromiseSupplier<T> deferFunc) {
         Uni<T> uni = Uni
             .createFrom()
             .deferred(
@@ -283,11 +284,12 @@ public class Promise {
 
     /**
      *【指定线程】惰性resolve模式(异步返回值)，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
+     * 注意此方法里不支持await!!!!
      * @param <T>
      * @param deferFunc
      * @return
      */
-    public static <T> JPromise<T> deferPromiseResolve(RunOn runOn, Supplier<JPromise<T>> deferFunc) {
+    public static <T> JPromise<T> deferPromiseResolve(RunOn runOn, PromiseSupplier<T> deferFunc) {
         Uni<T> uni = Uni
             .createFrom()
             .deferred(
@@ -300,6 +302,29 @@ public class Promise {
                 }
             );
 
+        return resolve(runOn, uni);
+    }
+
+    /**
+     * 【当前线程】包装JPromise,一般用于设置执行线程
+     * @param <T>
+     * @param defer
+     * @return
+     */
+    public static <T> JPromise<T> resolve(JPromise<T> promise) {
+        Uni<T> uni = promise.unwrap(Uni.class);
+
+        return resolve(RunOn.CONTENT_THREAD, uni);
+    }
+
+    /**
+     *【指定线程】包装JPromise,一般用于设置执行线程
+     * @param <T>
+     * @param defer
+     * @return
+     */
+    public static <T> JPromise<T> resolve(RunOn runOn, JPromise<T> promise) {
+        Uni<T> uni = promise.unwrap(Uni.class);
         return resolve(runOn, uni);
     }
 
