@@ -370,23 +370,6 @@ class PromiseTest {
     }
 
     @Test
-    void deferResolvePromise(Vertx vertx) {
-        try {
-            io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
-            vertx.setTimer(5000, timerId -> sleep1.complete(timerId));
-
-            Long start = System.currentTimeMillis();
-            JPromise<Long> p = Promise.resolve(Promise.resolve(sleep1.future()));
-            Thread.sleep(1000);
-            p.block();
-            Long end = System.currentTimeMillis();
-            Assertions.assertTrue(end - start > 4900 && end - start < 5500);
-        } catch (Exception error) {
-            Assertions.assertTrue(false);
-        }
-    }
-
-    @Test
     void reject() {
         try {
             Promise.reject().block();
@@ -549,7 +532,7 @@ class PromiseTest {
     void resolveRunOnWorkerThreadThen(Vertx vertx, VertxTestContext testContext) {
         Checkpoint checkpoint = testContext.checkpoint(2);
         Promise
-            .resolve(RunOn.VERTX_WORKER_THREAD, 1)
+            .resolve(RunOn.VERTX_WORKER_THREAD)
             .then(
                 resolver -> {
                     if (Thread.currentThread().getName().indexOf("worker") != -1) checkpoint.flag();
@@ -570,25 +553,6 @@ class PromiseTest {
         }
     }
 
-    @Test
-    void changeFutureThreadFail(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint checkpoint = testContext.checkpoint(1);
-
-        Future<Void> future = Future.future(
-            handler -> {
-                if (Thread.currentThread().getName().indexOf("main") != -1) checkpoint.flag();
-                handler.complete();
-            }
-        );
-
-        Promise.resolve(RunOn.VERTX_EVENT_LOOP_THREAD, future).block();
-
-        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
-            testContext.failNow("线程运行错误");
-        } else {
-            testContext.completeNow();
-        }
-    }
 
     /**
      * vertx Future属于一旦定义就直接运行那种，所以需要使用deferPromiseResolve才能真正实现设置线程
@@ -600,7 +564,7 @@ class PromiseTest {
         Checkpoint checkpoint = testContext.checkpoint(1);
 
         Promise
-            .deferPromiseResolve(
+            .resolve(
                 RunOn.VERTX_WORKER_THREAD,
                 () -> {
                     Future<Void> future = Future.future(
@@ -621,26 +585,17 @@ class PromiseTest {
         }
     }
 
-    @Test
-    void resolveChangeThreadSuccess(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint checkpoint = testContext.checkpoint(1);
+    JPromise<Boolean> resolveChangeThreadSuccessSubFunc() {
+        System.out.println(Thread.currentThread().getName());
+        return Promise.resolve(Thread.currentThread().getName().indexOf("worker") != -1);
+    }
 
-        Promise
-            .resolve(
-                RunOn.VERTX_WORKER_THREAD,
-                Promise.deferResolve(
-                    () -> {
-                        if (Thread.currentThread().getName().indexOf("worker") != -1) checkpoint.flag();
-                        return null;
-                    }
-                )
-            )
+    @Test
+    void resolveChangeThreadSuccess(Vertx vertx) {
+        boolean isSuccess = Promise
+            .resolve(RunOn.VERTX_WORKER_THREAD, ()->resolveChangeThreadSuccessSubFunc())
             .block();
 
-        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
-            testContext.failNow("线程运行错误");
-        } else {
-            testContext.completeNow();
-        }
+        Assertions.assertTrue(isSuccess);
     }
 }
