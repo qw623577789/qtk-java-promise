@@ -251,8 +251,7 @@ vertx.setTimer(4000, timerId -> task.cancel());
 
 ## Notice
 - 本组件仅支持javac(Sun JDK)编译器，不支持ecj(elicpise for Java)编译器
-- *(此条idea用户可以忽略,vscode用户必看)* 虽然vscode-java组件**运行、调试、跑测试用例**时用的是ecj编译器，但项目做了专门适配，需要安装改造后的[Test Runner for Java
-](https://github.com/qw623577789/vscode-java-test)插件以支持在vscode里运行或者调试, 配置详情见``.vscode``文件夹里的配置与``build.gradle``里的``compileJava``、``compileTestJava``
+- *(此条idea用户可以忽略,vscode用户必看)* 虽然vscode-java组件**运行、调试、跑测试用例**时用的是ecj编译器，但vscode可以做专门的适配，以支持运行或者调试, 配置详情见``.vscode``文件夹里的配置与``build.gradle``里的``compileJava``、``compileTestJava``
 
 ## Debug when compile error
 - 有提示报错的位置的，在对应的报错函数上``Async``注解打开``logResultTree = true``即可打印转化后的代码

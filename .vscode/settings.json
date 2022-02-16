@@ -6,8 +6,6 @@
     "java.debug.settings.forceBuildBeforeLaunch": false,
     "java.test.config": {
         // debug时手动执行编译任务(调用gradle的javac进行编译)
-        "launchParamsToReplace": {
-            "preLaunchTask": "compileTestJava"
-        }
+        "preLaunchTask": "compileTestJava"
     }
 }
