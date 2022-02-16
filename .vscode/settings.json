@@ -2,8 +2,6 @@
     "java.configuration.updateBuildConfiguration": "automatic",
     // 关闭vscode自动编译(不使用ecj编译)
     "java.autobuild.enabled": false,
-    // 关闭vscode debug时强制编译
-    "java.debug.settings.forceBuildBeforeLaunch": false,
     "java.test.config": {
         // debug时手动执行编译任务(调用gradle的javac进行编译)
         "preLaunchTask": "compileTestJava"
