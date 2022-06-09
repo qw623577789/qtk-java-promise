@@ -1,4 +1,4 @@
-YTK-Java-Promise
+QTK-Java-Promise
 ================
 基于[jasync-multiny](https://github.com/qw623577789/jasync-mutiny)封装的类似ES的Promise异步对象,支持async-await模式，实现**异步执行async模式、同步阻塞返回block模式**，关键能**让开发者以传统顺序的方式编写异步代码！！！！**
 
@@ -12,15 +12,15 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:ytk-java-promise:v1.5.0'
-    implementation 'io.github.vipcxj:jasync-core:0.1.9'
+    implementation 'com.github.qw623577789:ytk-java-promise:v1.6.0'
+    implementation 'io.github.vipcxj:jasync-core:0.1.11'
     implementation 'io.smallrye.reactive:mutiny:1.1.2'
 
     // annotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.9'
+    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
 
     // testAnnotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.9'
+    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
 }
 ```
 
@@ -38,13 +38,13 @@ dependencies {
 - ***JPromise\<T> resolve(PromiseSupplier\<T> promiseSupplier)** 包装异步函数,作用等同于``Promise.resolve().then(() -> promiseSupplier)``
 - **JPromise\<T> resolve(Future\<T> future)** 将[Vertx.Future](https://vertx.io/docs/vertx-core/java/#_future_results)异步对象包装成Promise,并可等待获取结果值
 - **JPromise<List\<T>> resolve(CompositeFuture future)** 将[Vertx.CompositeFuture](https://vertx.io/docs/vertx-core/java/#_future_coordination)【vertx下的promise.all/race/any/join功能的实现】异步对象包装成Promise,并可依次返回结果
-- **JPromise\<T> resolve(Consumer<Handler\<T>> consumer)** 包装一个lamda函数，当传入的参数(是一个方法)被调用时，返回结果值
+- **JPromise\<T> resolve(Consumer<Handler\<T>> consumer)** 包装一个lambda函数，当传入的参数(是一个方法)被调用时，返回结果值
 - **JPromise\<Void\> resolve(RunOn runOn)** 指定resolve运行线程，后面的...then...then...将在对应线程运行
 - **JPromise\<Void\> resolve(RunOn runOn, PromiseSupplier\<T\> promiseSupplier)** 惰性resolve模式**指定Promise运行线程**执行异步函数，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
 - **JPromise\<Void\> resolve(RunOn runOn, Supplier\<T\> supplier)** 惰性resolve模式**指定Promise运行线程**执行同步函数，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
 - **JPromise\<T> resolve(Uni\<T> value)** 包装[smallrye-mutiny.Uni](https://smallrye.io/smallrye-mutiny/getting-started/creating-unis)异步对象成Promise,并可等待获取结果值
 - **JPromise\<T> resolve(\<JPromise\<T> promise)** 二次包装JPromise成Promise对象，可设置执行线程
-- **JPromise\<T> deferResolve(Supplier\<T> deferFunc)** 包装lamda表达式(**返回同步结果**)成Promise对象，当触发``async()、block()、await()``时，才执行lamda方法触发Promise.resolve
+- **JPromise\<T> deferResolve(Supplier\<T> deferFunc)** 包装lambda表达式(**返回同步结果**)成Promise对象，当触发``async()、block()、await()``时，才执行lambda方法触发Promise.resolve
 - **JPromise\<List\<Object>> all(JPromise<?>... promises)** 并发执行多个Promise，并将结果依次返回。**若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
 - **JPromise\<List\<Object>> allSettled(JPromise<?>... promises)** 并发执行多个Promise，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
 - **JPromise\<Object> race(JPromise<?>... promises)** 并发执行多个Promise，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
@@ -250,8 +250,7 @@ vertx.setTimer(4000, timerId -> task.cancel());
 ```
 
 ## Notice
-- 本组件仅支持javac(Sun JDK)编译器，不支持ecj(elicpise for Java)编译器
-- *(此条idea用户可以忽略,vscode用户必看)* 虽然vscode-java组件**运行、调试、跑测试用例**时用的是ecj编译器，但vscode可以做专门的适配，以支持运行或者调试, 配置详情见``.vscode``文件夹里的配置与``build.gradle``里的``compileJava``、``compileTestJava``
+- 本组件仅支持javac(Sun JDK)编译器，不支持ecj(ellipse for Java)编译器
 
 ## Debug when compile error
 - 有提示报错的位置的，在对应的报错函数上``Async``注解打开``logResultTree = true``即可打印转化后的代码
