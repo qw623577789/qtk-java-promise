@@ -49,6 +49,10 @@ dependencies {
 - **JPromise\<List\<Object>> allSettled(JPromise<?>... promises)** 并发执行多个Promise，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
 - **JPromise\<Object> race(JPromise<?>... promises)** 并发执行多个Promise，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
 - **JPromise\<Object> any(JPromise<?>... promises)** 并发执行多个Promise，当其中某个Promise出**正常结果时(抛错则跳过，继续等待)，立即返回该结果**。
+- **JPromise\<List\<T>> allSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
+- **JPromise\<List\<T>> allSettledSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
+- **JPromise\<T> raceSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
+- **JPromise\<T> anySameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，当其中某个Promise出**正常结果时(抛错则跳过，继续等待)，立即返回该结果**。
 - **<T> JPromise<T> reject()** 异步抛出``RuntimeException``错误
 - **<T> JPromise<T> reject(String errorMessage)** 异步抛出``RuntimeException(errorMessage)``错误
 - **<T> JPromise<T> reject(Throwable t)** 异步抛出自定义错误

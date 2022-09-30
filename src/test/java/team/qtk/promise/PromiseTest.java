@@ -12,9 +12,11 @@ import io.vertx.core.impl.NoStackTraceThrowable;
 import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -163,6 +165,24 @@ class PromiseTest {
         Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
     }
 
+    @SneakyThrows
+    @Test
+    void resolvePromiseAllSameType(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, sleep2::complete);
+
+        Long start = System.currentTimeMillis();
+
+        List<Long> timerIds = Promise
+            .allSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+            .block();
+        Long end = System.currentTimeMillis();
+        System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
+        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+    }
+
     @Test
     void resolvePromiseAllError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
@@ -181,8 +201,32 @@ class PromiseTest {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
                 end - start > 2900 &&
-                timerIds.size() == 0 &&
-                error.getCause().getMessage().equals("error")
+                    timerIds.size() == 0 &&
+                    error.getCause().getMessage().equals("error")
+            );
+        }
+    }
+
+    @Test
+    void resolvePromiseAllSameTypeError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        List<Long> timerIds = new ArrayList<>();
+        try {
+            timerIds =
+                Promise.allSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future())).block();
+            Assertions.fail();
+        } catch (Exception error) {
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(
+                end - start > 2900 &&
+                    timerIds.size() == 0 &&
+                    error.getCause().getMessage().equals("error")
             );
         }
     }
@@ -205,6 +249,23 @@ class PromiseTest {
     }
 
     @Test
+    void resolvePromiseAllSameTypeSettle(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, sleep2::complete);
+
+        Long start = System.currentTimeMillis();
+
+        List<Long> timerIds = Promise
+            .allSettledSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+            .block();
+        Long end = System.currentTimeMillis();
+        System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
+        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+    }
+
+    @Test
     void resolvePromiseAllSettleError() {
         Vertx vertx = Vertx.vertx();
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
@@ -220,10 +281,34 @@ class PromiseTest {
         Long end = System.currentTimeMillis();
         Assertions.assertTrue(
             end - start > 5000 &&
-            timerIds.size() == 2 &&
-            (long) timerIds.get(0) == 0 &&
-            ((NoStackTraceThrowable) timerIds.get(1)).getMessage().equals("error")
+                timerIds.size() == 2 &&
+                (long) timerIds.get(0) == 0 &&
+                ((NoStackTraceThrowable) timerIds.get(1)).getMessage().equals("error")
         );
+    }
+
+    @Test
+    void resolvePromiseAllSettleSameTypeError() {
+        Vertx vertx = Vertx.vertx();
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            List<Long> timerIds = Promise
+                .allSettledSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Assertions.assertTrue(false);
+        } catch (Exception error) {
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(
+                end - start > 5000
+            );
+        }
+
     }
 
     @Test
@@ -245,6 +330,24 @@ class PromiseTest {
     }
 
     @Test
+    void resolvePromiseRaceSameType() {
+        Vertx vertx = Vertx.vertx();
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, sleep2::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Long timerId = Promise
+            .raceSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+            .block();
+        Long end = System.currentTimeMillis();
+        System.out.println("!!!!" + start + ":" + end + ":" + timerId);
+        Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId == 0);
+    }
+
+    @Test
     void resolvePromiseRaceNoError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
@@ -256,6 +359,26 @@ class PromiseTest {
         try {
             Object timerId = Promise
                 .race(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);
+        } catch (Exception error) {
+            Assertions.fail();
+        }
+    }
+
+    @Test
+    void resolvePromiseRaceSameTypeNoError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Long timerId = Promise
+                .raceSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
                 .block();
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);
@@ -287,6 +410,29 @@ class PromiseTest {
     }
 
     @Test
+    void resolvePromiseRaceSameTypeToError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(5000, sleep1::complete);
+        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Long timerId = Promise
+                .raceSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Assertions.fail();
+        } catch (Exception error) {
+            error.printStackTrace();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(
+                end - start > 2900 && end - start < 3500
+            );
+        }
+    }
+
+    @Test
     void resolvePromiseAnyNoError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
@@ -301,6 +447,26 @@ class PromiseTest {
                 .block();
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);
+        } catch (Exception error) {
+            Assertions.fail();
+        }
+    }
+
+    @Test
+    void resolvePromiseAnySameTypeNoError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep1::complete);
+        vertx.setTimer(5000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Long timerId = Promise
+                .anySameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(end - start > 2900 && end - start < 3500);
         } catch (Exception error) {
             Assertions.fail();
         }
@@ -327,6 +493,26 @@ class PromiseTest {
     }
 
     @Test
+    void resolvePromiseAny2SameTypeNoError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(5000, sleep1::complete);
+        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Long timerId = Promise
+                .anySameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(end - start > 4900 && end - start < 5100);
+        } catch (Exception error) {
+            Assertions.fail();
+        }
+    }
+
+    @Test
     void resolvePromiseAnyError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
@@ -344,6 +530,28 @@ class PromiseTest {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
                 end - start > 4900 && end - start < 5100 && error.getCause().getMessage().equals("error")
+            );
+        }
+    }
+
+    @Test
+    void resolvePromiseAnySameTypeError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(5000, timerId -> sleep1.fail("error"));
+        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Long timerId = Promise
+                .anySameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .block();
+            Assertions.fail();
+        } catch (Exception error) {
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(
+                end - start > 4900 && end - start < 5100
             );
         }
     }
@@ -395,7 +603,7 @@ class PromiseTest {
         Long start = System.currentTimeMillis();
         Promise
             .resolve(sleep1.future())
-            .then( timerId ->  Promise.resolve(sleep2.future()) )
+            .then(timerId -> Promise.resolve(sleep2.future()))
             .then(
                 timerId -> {
                     Long end = System.currentTimeMillis();
@@ -425,7 +633,7 @@ class PromiseTest {
 
         Promise
             .resolve(sleep3s.future())
-            .then(  () ->  Promise.reject("在这里抛了个错。。。") )
+            .then(() -> Promise.reject("在这里抛了个错。。。"))
             .then(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
             .then(
                 sleep5sTimerId -> {
@@ -536,7 +744,6 @@ class PromiseTest {
             testContext.completeNow();
         }
     }
-
 
     /**
      * vertx Future属于一旦定义就直接运行那种，所以需要使用deferPromiseResolve才能真正实现设置线程

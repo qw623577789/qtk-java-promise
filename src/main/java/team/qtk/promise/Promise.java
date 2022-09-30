@@ -4,6 +4,7 @@
  */
 package team.qtk.promise;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import io.github.vipcxj.jasync.spec.JPromise;
 import io.github.vipcxj.jasync.spec.functional.PromiseSupplier;
 import io.smallrye.mutiny.Uni;
@@ -12,11 +13,14 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -115,6 +119,97 @@ public class Promise {
 
         return resolve(RunOn.CONTENT_THREAD, uni);
     }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     */
+    public static <T> JPromise<List<T>> allSameType(List<JPromise<T>> promises) {
+        Uni<List<T>> promiseAll = Uni.join().all(
+            promises.stream()
+                .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                .collect(Collectors.toList())
+        ).andFailFast();
+
+        return resolve(RunOn.CONTENT_THREAD, promiseAll);
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+     */
+    @SafeVarargs
+    public static <T> JPromise<List<T>> allSameType(JPromise<T>... promises) {
+        return allSameType(Arrays.asList(promises));
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     */
+    public static <T> JPromise<List<T>> allSettledSameType(List<JPromise<T>> promises) {
+        Uni<List<T>> promiseAllSettled = Uni.join().all(
+            promises.stream()
+                .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                .collect(Collectors.toList())
+        ).andCollectFailures();
+
+        return resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     */
+    @SafeVarargs
+    public static <T> JPromise<List<T>> allSettledSameType(JPromise<T>... promises) {
+        return allSettledSameType(Arrays.asList(promises));
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     */
+    public static <T> JPromise<T> raceSameType(List<JPromise<T>> promises) {
+        Uni<T> promiseRace = Uni.join().first(
+            promises.stream()
+                .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                .collect(Collectors.toList())
+        ).toTerminate();
+
+        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+     */
+    @SafeVarargs
+    public static <T> JPromise<T> raceSameType(JPromise<T>... promises) {
+        return raceSameType(Arrays.asList(promises));
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     */
+    public static <T> JPromise<T> anySameType(List<JPromise<T>> promises) {
+        Uni<T> promiseRace = Uni.join().first(
+            promises.stream()
+                .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                .collect(Collectors.toList())
+        ).withItem();
+
+        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+    }
+
+    /**
+     * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+     * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+     */
+    @SafeVarargs
+    public static <T> JPromise<T> anySameType(JPromise<T>... promises) {
+        return anySameType(Arrays.asList(promises));
+    }
+
 
     /**
      * 【当前线程】并发执行多个Promise，并将结果依次返回。
