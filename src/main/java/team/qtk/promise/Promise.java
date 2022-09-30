@@ -4,7 +4,6 @@
  */
 package team.qtk.promise;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import io.github.vipcxj.jasync.spec.JPromise;
 import io.github.vipcxj.jasync.spec.functional.PromiseSupplier;
 import io.smallrye.mutiny.Uni;
@@ -13,8 +12,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executor;
