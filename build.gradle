@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "team.qtk"
-version = "1.7.2"
+version = "1.7.3"
 sourceCompatibility = 11
 
 repositories {
@@ -21,20 +21,20 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:jasync-mutiny:1.1.0'
+    implementation 'com.github.qw623577789:jasync-mutiny:1.1.1'
     implementation 'io.vertx:vertx-core:4.2.0'
-    implementation 'io.smallrye.reactive:mutiny:1.1.2'
+    implementation 'io.smallrye.reactive:mutiny:2.0.0'
     implementation 'org.projectlombok:lombok:1.18.22'
     implementation 'io.vertx:vertx-junit5:4.2.0'
     
     // 普通编译时ADT
     annotationProcessor 'org.projectlombok:lombok:1.18.22'
-    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
+    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
 
 
     // 测试时ADT
     testAnnotationProcessor 'org.projectlombok:lombok:1.18.22'
-    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
+    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
 
     // Use JUnit Jupiter for testing.
     testImplementation 'org.junit.jupiter:junit-jupiter:5.7.2'

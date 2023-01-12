@@ -258,7 +258,7 @@ public class Promise {
                 Uni.join().builder(),
                 (prev, promise) -> {
                     prev.add(
-                        ((Uni<Throwable>) promise.unwrap(Uni.class)).onFailure()
+                        ((Uni<Object>) promise.unwrap(Uni.class)).onFailure()
                             .recoverWithUni(error -> Uni.createFrom().item(error))
                     );
                     return prev;
