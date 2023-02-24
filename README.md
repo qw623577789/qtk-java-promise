@@ -12,15 +12,15 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:ytk-java-promise:v1.6.0'
-    implementation 'io.github.vipcxj:jasync-core:0.1.11'
-    implementation 'io.smallrye.reactive:mutiny:1.1.2'
+    implementation 'com.github.qw623577789:qtk-java-promise:1.7.4'
+    implementation 'io.github.vipcxj:jasync-core:0.1.14'
+    implementation 'io.smallrye.reactive:mutiny:2.0.0'
 
     // annotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
+    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
 
     // testAnnotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.11'
+    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
 }
 ```
 
@@ -56,7 +56,7 @@ dependencies {
 - **<T> JPromise<T> reject()** 异步抛出``RuntimeException``错误
 - **<T> JPromise<T> reject(String errorMessage)** 异步抛出``RuntimeException(errorMessage)``错误
 - **<T> JPromise<T> reject(Throwable t)** 异步抛出自定义错误
-- 通过``Promise.setVertx()``设置Vertx实例，由Vertx提供、管理线程池。上述每个方法第一个参数支持传``RunOn``参数指定运行线程
+- 通过``Promise.setVertx()/setGlobalVertx()``指定本次或者全局的Vertx实例，由Vertx提供、管理线程池。上述每个方法第一个参数支持传``RunOn``参数指定运行线程
 
 
 ## Usage

@@ -24,30 +24,468 @@ import lombok.SneakyThrows;
 import team.qtk.jasync.mutiny.Promises;
 
 public class Promise {
+    private static PromiseInstance promiseInstance = new PromiseInstance(Vertx.vertx());
 
-    private static Executor vertxEventLoopExecutor;
-    private static Executor vertxWorkerExecutor;
+    public static void setGlobalVertx(Vertx vertx) {
+        Promise.promiseInstance = new PromiseInstance(vertx);
+    }
 
     /**
      * 使用Vertx实例来管理异步执行线程
      */
-    public static void setVertx(Vertx vertx) {
-        Promise.vertxEventLoopExecutor = new VertxExecutor(vertx);
-        Promise.vertxWorkerExecutor = new VertxWorkerExecutor(vertx);
+    public static PromiseInstance setVertx(Vertx vertx) {
+        return new PromiseInstance(vertx);
+    }
+
+    static class PromiseInstance {
+        private final Executor vertxEventLoopExecutor;
+        private final Executor vertxWorkerExecutor;
+
+        public PromiseInstance(Vertx vertx) {
+            vertxEventLoopExecutor = new VertxExecutor(vertx);
+            vertxWorkerExecutor = new VertxWorkerExecutor(vertx);
+        }
+
+        /**
+         * 【当前线程】异步执行Uni对象
+         * 此为核心方法，可在此函数上二次开发
+         */
+        public <T> JPromise<T> resolve(Uni<T> value) {
+            return Promises.from(chooseRunningThread(value, RunOn.CONTENT_THREAD));
+        }
+
+        /**
+         * 【指定线程】异步执行Uni对象
+         * 此为核心方法，可在此函数上二次开发
+         */
+        public <T> JPromise<T> resolve(RunOn runOn, Uni<T> value) {
+            return Promises.from(chooseRunningThread(value, runOn));
+        }
+
+        /**
+         * 【当前线程】异步返回null
+         */
+        public JPromise<Void> resolve() {
+            return resolve(RunOn.CONTENT_THREAD, Uni.createFrom().nullItem());
+        }
+
+        /**
+         * 【当前线程】异步返回同步对象
+         */
+        public <T> JPromise<T> resolve(T value) {
+            return resolve(RunOn.CONTENT_THREAD, Uni.createFrom().item(value));
+        }
+
+        /**
+         * 【当前线程】执行异步函数
+         * 等同于Promise.resolve().then(promiseSupplier)
+         */
+        public <T> JPromise<T> resolve(PromiseSupplier<T> promiseSupplier) {
+            return resolve().then(promiseSupplier);
+        }
+
+        /**
+         * 【当前线程】异步等待Vertx.Future返回
+         * Vertx.Future在是一旦定义就立即触发，所以其执行不一定是在【当前线程】
+         * 若想指定Vertx.Future执行线程请使Promise.resolve(RunOn.xxx, () -> Promise.resolve(Vertx.Future))
+         */
+        @SneakyThrows
+        public <T> JPromise<T> resolve(Future<T> future) {
+            Uni<T> uni = Uni
+                .createFrom()
+                .emitter(
+                    emitter -> future.onComplete(
+                        h -> {
+                            if (h.succeeded()) {
+                                emitter.complete(h.result());
+                            } else {
+                                emitter.fail(h.cause());
+                            }
+                        }
+                    )
+                );
+
+            return resolve(RunOn.CONTENT_THREAD, uni);
+        }
+
+        /**
+         * 【当前线程】异步等待Vertx.CompositeFuture返回，并将每个Vertx.Future结果按顺序放入List
+         * 若想指定Vertx.CompositeFuture执行线程请使Promise.resolve(RunOn.xxx, () -> Promise.resolve(Vertx.CompositeFuture))
+         */
+        @SneakyThrows
+        public <T> JPromise<List<T>> resolve(CompositeFuture future) {
+            Uni<List<T>> uni = Uni
+                .createFrom()
+                .emitter(
+                    emitter -> future.onComplete(
+                        h -> {
+                            if (h.succeeded()) {
+                                emitter.complete(h.result().list());
+                            } else {
+                                emitter.fail(h.cause());
+                            }
+                        }
+                    )
+                );
+
+            return resolve(RunOn.CONTENT_THREAD, uni);
+        }
+
+        /**
+         * 【当前线程】包装一个lambda函数，当传入的参数(一个方法(Vertx.Handler))被调用时，返回结果值
+         * 例如:Promise.<Long>resolve(doneCallback ->  Vertx.vertx().setTimer(3000, doneCallback))
+         */
+        public <T> JPromise<T> resolve(Consumer<Handler<T>> consumer) {
+            Uni<T> uni = Uni
+                .createFrom()
+                .emitter(emitter -> consumer.accept(emitter::complete));
+
+            return resolve(RunOn.CONTENT_THREAD, uni);
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+         */
+        public <T> JPromise<List<T>> allSameType(List<JPromise<T>> promises) {
+            if (promises.size() == 0) return Promise.resolve(List.of());
+
+            Uni<List<T>> promiseAll = Uni.join().all(
+                promises.stream()
+                    .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                    .collect(Collectors.toList())
+            ).andFailFast();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseAll);
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+         */
+        public <T> JPromise<List<T>> allSameType(JPromise<T>... promises) {
+            return allSameType(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        public <T> JPromise<List<T>> allSettledSameType(List<JPromise<T>> promises) {
+            if (promises.size() == 0) return Promise.resolve(List.of());
+
+            Uni<List<T>> promiseAllSettled = Uni.join().all(
+                promises.stream()
+                    .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                    .collect(Collectors.toList())
+            ).andCollectFailures();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        public <T> JPromise<List<T>> allSettledSameType(JPromise<T>... promises) {
+            return allSettledSameType(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+         */
+        public <T> JPromise<T> raceSameType(List<JPromise<T>> promises) {
+            if (promises.size() == 0) return Promise.resolve((T) null);
+            Uni<T> promiseRace = Uni.join().first(
+                promises.stream()
+                    .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                    .collect(Collectors.toList())
+            ).toTerminate();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+         */
+        public <T> JPromise<T> raceSameType(JPromise<T>... promises) {
+            return raceSameType(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        public <T> JPromise<T> anySameType(List<JPromise<T>> promises) {
+            if (promises.size() == 0) return Promise.resolve((T) null);
+            Uni<T> promiseRace = Uni.join().first(
+                promises.stream()
+                    .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
+                    .collect(Collectors.toList())
+            ).withItem();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        }
+
+        /**
+         * 【当前线程】并发执行多个【同类型Promise】，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        public <T> JPromise<T> anySameType(JPromise<T>... promises) {
+            return anySameType(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，并将结果依次返回。
+         * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+         */
+        public JPromise<List<Object>> all(List<JPromise<?>> promises) {
+            if (promises.size() == 0) return Promise.resolve(List.of());
+            Uni<List<Object>> promiseAll = promises
+                .stream()
+                .reduce(
+                    Uni.join().builder(),
+                    (prev, promise) -> {
+                        prev.add(promise.unwrap(Uni.class));
+
+                        return prev;
+                    },
+                    (l, r) -> l
+                )
+                .joinAll()
+                .andFailFast();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseAll);
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，并将结果依次返回。
+         * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
+         */
+        public JPromise<List<Object>> all(JPromise<?>... promises) {
+            return all(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        @SuppressWarnings("unchecked")
+        public JPromise<List<Object>> allSettled(List<JPromise<?>> promises) {
+            if (promises.size() == 0) return Promise.resolve(List.of());
+            Uni<List<Object>> promiseAllSettled = promises
+                .stream()
+                .reduce(
+                    Uni.join().builder(),
+                    (prev, promise) -> {
+                        prev.add(
+                            ((Uni<Object>) promise.unwrap(Uni.class)).onFailure()
+                                .recoverWithUni(error -> Uni.createFrom().item(error))
+                        );
+                        return prev;
+                    },
+                    (l, r) -> l
+                )
+                .joinAll()
+                .andCollectFailures();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，并将结果依次返回。
+         * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
+         */
+        public JPromise<List<Object>> allSettled(JPromise<?>... promises) {
+            return allSettled(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+         */
+        public JPromise<Object> race(JPromise<?>... promises) {
+            return race(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
+         */
+        public JPromise<Object> race(List<JPromise<?>> promises) {
+            if (promises.size() == 0) return Promise.resolve((Object) null);
+            Uni<Object> promiseRace = promises
+                .stream()
+                .reduce(
+                    Uni.join().builder(),
+                    (prev, promise) -> {
+                        prev.add(promise.unwrap(Uni.class));
+                        return prev;
+                    },
+                    (l, r) -> l
+                )
+                .joinFirst()
+                .toTerminate();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+         */
+        public JPromise<Object> any(List<JPromise<?>> promises) {
+            if (promises.size() == 0) return Promise.resolve((Object) null);
+            Uni<Object> promiseRace = promises
+                .stream()
+                .reduce(
+                    Uni.join().builder(),
+                    (prev, promise) -> {
+                        prev.add(promise.unwrap(Uni.class));
+                        return prev;
+                    },
+                    (l, r) -> l
+                )
+                .joinFirst()
+                .withItem();
+
+            return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        }
+
+        /**
+         * 【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
+         */
+        public JPromise<Object> any(JPromise<?>... promises) {
+            return any(Arrays.asList(promises));
+        }
+
+        /**
+         * 【当前线程】抛出RuntimeException("reject")错误
+         */
+        public JPromise<RuntimeException> reject() {
+            return reject("reject");
+        }
+
+        /**
+         * 【当前线程】抛出RuntimeException(errorMessage)错误
+         */
+        public JPromise<RuntimeException> reject(String errorMessage) {
+            return reject(new RuntimeException(errorMessage));
+        }
+
+        /**
+         * 【当前线程】抛出自定义错误
+         */
+        public <T extends Throwable> JPromise<T> reject(T t) {
+            Uni<T> uni = Uni.createFrom().failure(t);
+            return resolve(RunOn.CONTENT_THREAD, uni);
+        }
+
+        /**
+         * 指定resolve运行线程，后面的...then...then...将在对应线程运行
+         */
+        public JPromise<Void> resolve(RunOn runOn) {
+            return resolve(runOn, Uni.createFrom().voidItem());
+        }
+
+        /**
+         * 【指定线程】惰性resolve模式执行异步函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于指定Promise运行线程
+         * 例如:Promise.resolve(RunOn.xxx, () -> Promise.resolve("这个resolve将在指定线程上运行"))
+         */
+        public <T> JPromise<T> resolve(RunOn runOn, PromiseSupplier<T> promiseSupplier) {
+            return resolve(runOn).then(promiseSupplier);
+        }
+
+        /**
+         * 【指定线程】惰性resolve模式执行同步函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于将计算密集型的函数放于工作线程上执行，不卡事件循环线程
+         * 例如:Promise.resolve(RunOn.xxx, () -> calcPI("同步代码方式算π"))
+         */
+        public <T> JPromise<T> resolve(RunOn runOn, Supplier<T> supplier) {
+            Uni<T> uni = Uni
+                .createFrom()
+                .deferred(
+                    () -> {
+                        try {
+                            return Uni.createFrom().item(supplier.get());
+                        } catch (Throwable t) {
+                            return Uni.createFrom().failure(t);
+                        }
+                    }
+                );
+
+            return resolve(runOn, uni);
+        }
+
+        /**
+         * 【指定线程】惰性resolve模式执行同步函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于延后运行同步函数
+         * 例如:Promise.deferResolve(RunOn.xxx, () -> calcPI("延后执行同步calcPI函数"))
+         */
+        public <T> JPromise<T> deferResolve(Promise.RunOn runOn, Supplier<T> deferFunc) {
+            return resolve(runOn, deferFunc);
+        }
+
+        /**
+         * 【当前线程】惰性resolve模式执行同步函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于延后运行同步函数
+         * 例如:Promise.deferResolve(() -> calcPI("延后执行同步calcPI函数"))
+         */
+        public <T> JPromise<T> deferResolve(Supplier<T> deferFunc) {
+            return deferResolve(Promise.RunOn.CONTENT_THREAD, deferFunc);
+        }
+
+        private final class VertxExecutor implements Executor {
+
+            private final Vertx vertx;
+
+            public VertxExecutor(@NonNull Vertx vertx) {
+                this.vertx = vertx;
+            }
+
+            @Override
+            public void execute(@NonNull Runnable command) {
+                vertx.runOnContext(v -> command.run());
+            }
+        }
+
+        private final class VertxWorkerExecutor implements Executor {
+
+            private final Vertx vertx;
+
+            public VertxWorkerExecutor(@NonNull Vertx vertx) {
+                this.vertx = vertx;
+            }
+
+            @Override
+            public void execute(@NonNull Runnable command) {
+                vertx.executeBlocking(v -> command.run());
+            }
+        }
+
+        private <T> Uni<T> chooseRunningThread(Uni<T> uni, RunOn runOn) {
+            if (runOn == RunOn.CONTENT_THREAD) {
+            } else if (runOn == RunOn.VERTX_EVENT_LOOP_THREAD) {
+                uni = uni.runSubscriptionOn(vertxEventLoopExecutor);
+            } else if (runOn == RunOn.VERTX_WORKER_THREAD) {
+                uni = uni.runSubscriptionOn(vertxWorkerExecutor);
+            } else {
+                throw new RuntimeException("no support runOn mode:" + runOn.name());
+            }
+            return uni;
+        }
     }
 
     /**
      * 【当前线程】异步返回null
      */
     public static JPromise<Void> resolve() {
-        return resolve(RunOn.CONTENT_THREAD, Uni.createFrom().nullItem());
+        return promiseInstance.resolve();
     }
 
     /**
      * 【当前线程】异步返回同步对象
      */
     public static <T> JPromise<T> resolve(T value) {
-        return resolve(RunOn.CONTENT_THREAD, Uni.createFrom().item(value));
+        return promiseInstance.resolve(value);
     }
 
     /**
@@ -55,7 +493,7 @@ public class Promise {
      * 等同于Promise.resolve().then(promiseSupplier)
      */
     public static <T> JPromise<T> resolve(PromiseSupplier<T> promiseSupplier) {
-        return resolve().then(promiseSupplier);
+        return promiseInstance.resolve().then(promiseSupplier);
     }
 
     /**
@@ -79,7 +517,7 @@ public class Promise {
                 )
             );
 
-        return resolve(RunOn.CONTENT_THREAD, uni);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, uni);
     }
 
     /**
@@ -102,7 +540,7 @@ public class Promise {
                 )
             );
 
-        return resolve(RunOn.CONTENT_THREAD, uni);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, uni);
     }
 
     /**
@@ -114,7 +552,7 @@ public class Promise {
             .createFrom()
             .emitter(emitter -> consumer.accept(emitter::complete));
 
-        return resolve(RunOn.CONTENT_THREAD, uni);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, uni);
     }
 
     /**
@@ -122,7 +560,7 @@ public class Promise {
      * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
      */
     public static <T> JPromise<List<T>> allSameType(List<JPromise<T>> promises) {
-        if (promises.size() == 0) return Promise.resolve(List.of());
+        if (promises.size() == 0) return promiseInstance.resolve(List.of());
 
         Uni<List<T>> promiseAll = Uni.join().all(
             promises.stream()
@@ -130,7 +568,7 @@ public class Promise {
                 .collect(Collectors.toList())
         ).andFailFast();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseAll);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseAll);
     }
 
     /**
@@ -147,7 +585,7 @@ public class Promise {
      * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
      */
     public static <T> JPromise<List<T>> allSettledSameType(List<JPromise<T>> promises) {
-        if (promises.size() == 0) return Promise.resolve(List.of());
+        if (promises.size() == 0) return promiseInstance.resolve(List.of());
 
         Uni<List<T>> promiseAllSettled = Uni.join().all(
             promises.stream()
@@ -155,7 +593,7 @@ public class Promise {
                 .collect(Collectors.toList())
         ).andCollectFailures();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
     }
 
     /**
@@ -171,14 +609,14 @@ public class Promise {
      * 【当前线程】并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
      */
     public static <T> JPromise<T> raceSameType(List<JPromise<T>> promises) {
-        if (promises.size() == 0) return Promise.resolve((T)null);
+        if (promises.size() == 0) return promiseInstance.resolve((T) null);
         Uni<T> promiseRace = Uni.join().first(
             promises.stream()
                 .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
                 .collect(Collectors.toList())
         ).toTerminate();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseRace);
     }
 
     /**
@@ -194,14 +632,14 @@ public class Promise {
      * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
      */
     public static <T> JPromise<T> anySameType(List<JPromise<T>> promises) {
-        if (promises.size() == 0) return Promise.resolve((T)null);
+        if (promises.size() == 0) return promiseInstance.resolve((T) null);
         Uni<T> promiseRace = Uni.join().first(
             promises.stream()
                 .map(promise -> (Uni<T>) promise.unwrap(Uni.class))
                 .collect(Collectors.toList())
         ).withItem();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseRace);
     }
 
     /**
@@ -218,7 +656,7 @@ public class Promise {
      * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
      */
     public static JPromise<List<Object>> all(List<JPromise<?>> promises) {
-        if (promises.size() == 0) return Promise.resolve(List.of());
+        if (promises.size() == 0) return promiseInstance.resolve(List.of());
         Uni<List<Object>> promiseAll = promises
             .stream()
             .reduce(
@@ -233,14 +671,13 @@ public class Promise {
             .joinAll()
             .andFailFast();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseAll);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseAll);
     }
 
     /**
      * 【当前线程】并发执行多个Promise，并将结果依次返回。
      * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
      */
-    @SafeVarargs
     public static JPromise<List<Object>> all(JPromise<?>... promises) {
         return all(Arrays.asList(promises));
     }
@@ -251,7 +688,7 @@ public class Promise {
      */
     @SuppressWarnings("unchecked")
     public static JPromise<List<Object>> allSettled(List<JPromise<?>> promises) {
-        if (promises.size() == 0) return Promise.resolve(List.of());
+        if (promises.size() == 0) return promiseInstance.resolve(List.of());
         Uni<List<Object>> promiseAllSettled = promises
             .stream()
             .reduce(
@@ -268,14 +705,13 @@ public class Promise {
             .joinAll()
             .andCollectFailures();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseAllSettled);
     }
 
     /**
      * 【当前线程】并发执行多个Promise，并将结果依次返回。
      * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
      */
-    @SafeVarargs
     public static JPromise<List<Object>> allSettled(JPromise<?>... promises) {
         return allSettled(Arrays.asList(promises));
     }
@@ -283,7 +719,6 @@ public class Promise {
     /**
      * 【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
      */
-    @SafeVarargs
     public static JPromise<Object> race(JPromise<?>... promises) {
         return race(Arrays.asList(promises));
     }
@@ -292,7 +727,7 @@ public class Promise {
      * 【当前线程】并发执行多个Promise，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
      */
     public static JPromise<Object> race(List<JPromise<?>> promises) {
-        if (promises.size() == 0) return Promise.resolve((Object)null);
+        if (promises.size() == 0) return promiseInstance.resolve((Object) null);
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -306,14 +741,14 @@ public class Promise {
             .joinFirst()
             .toTerminate();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseRace);
     }
 
     /**
      * 【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
      */
     public static JPromise<Object> any(List<JPromise<?>> promises) {
-        if (promises.size() == 0) return Promise.resolve((Object)null);
+        if (promises.size() == 0) return promiseInstance.resolve((Object) null);
         Uni<Object> promiseRace = promises
             .stream()
             .reduce(
@@ -327,13 +762,12 @@ public class Promise {
             .joinFirst()
             .withItem();
 
-        return resolve(RunOn.CONTENT_THREAD, promiseRace);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, promiseRace);
     }
 
     /**
      * 【当前线程】并发执行多个Promise，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
      */
-    @SafeVarargs
     public static JPromise<Object> any(JPromise<?>... promises) {
         return any(Arrays.asList(promises));
     }
@@ -342,14 +776,14 @@ public class Promise {
      * 【当前线程】抛出RuntimeException("reject")错误
      */
     public static JPromise<RuntimeException> reject() {
-        return reject("reject");
+        return promiseInstance.reject("reject");
     }
 
     /**
      * 【当前线程】抛出RuntimeException(errorMessage)错误
      */
     public static JPromise<RuntimeException> reject(String errorMessage) {
-        return reject(new RuntimeException(errorMessage));
+        return promiseInstance.reject(new RuntimeException(errorMessage));
     }
 
     /**
@@ -357,14 +791,14 @@ public class Promise {
      */
     public static <T extends Throwable> JPromise<T> reject(T t) {
         Uni<T> uni = Uni.createFrom().failure(t);
-        return resolve(RunOn.CONTENT_THREAD, uni);
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, uni);
     }
 
     /**
      * 指定resolve运行线程，后面的...then...then...将在对应线程运行
      */
     public static JPromise<Void> resolve(RunOn runOn) {
-        return resolve(runOn, Uni.createFrom().voidItem());
+        return promiseInstance.resolve(runOn, Uni.createFrom().voidItem());
     }
 
     /**
@@ -373,7 +807,7 @@ public class Promise {
      * 例如:Promise.resolve(RunOn.xxx, () -> Promise.resolve("这个resolve将在指定线程上运行"))
      */
     public static <T> JPromise<T> resolve(RunOn runOn, PromiseSupplier<T> promiseSupplier) {
-        return resolve(runOn).then(promiseSupplier);
+        return promiseInstance.resolve(runOn).then(promiseSupplier);
     }
 
     /**
@@ -394,7 +828,7 @@ public class Promise {
                 }
             );
 
-        return resolve(runOn, uni);
+        return promiseInstance.resolve(runOn, uni);
     }
 
     /**
@@ -402,7 +836,7 @@ public class Promise {
      * 此为核心方法，可在此函数上二次开发
      */
     public static <T> JPromise<T> resolve(Uni<T> value) {
-        return Promises.from(chooseRunningThread(value, RunOn.CONTENT_THREAD));
+        return promiseInstance.resolve(RunOn.CONTENT_THREAD, value);
     }
 
     /**
@@ -410,7 +844,7 @@ public class Promise {
      * 此为核心方法，可在此函数上二次开发
      */
     public static <T> JPromise<T> resolve(RunOn runOn, Uni<T> value) {
-        return Promises.from(chooseRunningThread(value, runOn));
+        return promiseInstance.resolve(runOn, value);
     }
 
     /**
@@ -419,7 +853,7 @@ public class Promise {
      * 例如:Promise.deferResolve(RunOn.xxx, () -> calcPI("延后执行同步calcPI函数"))
      */
     public static <T> JPromise<T> deferResolve(RunOn runOn, Supplier<T> deferFunc) {
-        return resolve(runOn, deferFunc);
+        return promiseInstance.resolve(runOn, deferFunc);
     }
 
     /**
@@ -428,19 +862,7 @@ public class Promise {
      * 例如:Promise.deferResolve(() -> calcPI("延后执行同步calcPI函数"))
      */
     public static <T> JPromise<T> deferResolve(Supplier<T> deferFunc) {
-        return deferResolve(RunOn.CONTENT_THREAD, deferFunc);
-    }
-
-    private static <T> Uni<T> chooseRunningThread(Uni<T> uni, RunOn runOn) {
-        if (runOn == RunOn.CONTENT_THREAD) {
-        } else if (runOn == RunOn.VERTX_EVENT_LOOP_THREAD) {
-            uni = uni.runSubscriptionOn(Promise.vertxEventLoopExecutor);
-        } else if (runOn == RunOn.VERTX_WORKER_THREAD) {
-            uni = uni.runSubscriptionOn(Promise.vertxWorkerExecutor);
-        } else {
-            throw new RuntimeException("no support runOn mode:" + runOn.name());
-        }
-        return uni;
+        return promiseInstance.deferResolve(RunOn.CONTENT_THREAD, deferFunc);
     }
 
     public enum RunOn {
@@ -459,31 +881,4 @@ public class Promise {
         VERTX_WORKER_THREAD,
     }
 
-    private static final class VertxExecutor implements Executor {
-
-        private final Vertx vertx;
-
-        public VertxExecutor(@NonNull Vertx vertx) {
-            this.vertx = vertx;
-        }
-
-        @Override
-        public void execute(@NonNull Runnable command) {
-            vertx.runOnContext(v -> command.run());
-        }
-    }
-
-    private static final class VertxWorkerExecutor implements Executor {
-
-        private final Vertx vertx;
-
-        public VertxWorkerExecutor(@NonNull Vertx vertx) {
-            this.vertx = vertx;
-        }
-
-        @Override
-        public void execute(@NonNull Runnable command) {
-            vertx.executeBlocking(v -> command.run());
-        }
-    }
 }

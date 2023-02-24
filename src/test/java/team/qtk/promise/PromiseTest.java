@@ -31,7 +31,7 @@ class PromiseTest {
 
     @BeforeAll
     void setPromiseRunMode(Vertx vertx) {
-        Promise.setVertx(vertx);
+//        Promise.setGlobalVertx(vertx);
     }
 
     @Test
