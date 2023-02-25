@@ -24,7 +24,9 @@ import lombok.SneakyThrows;
 import team.qtk.jasync.mutiny.Promises;
 
 public class Promise {
-    private static PromiseInstance promiseInstance = new PromiseInstance(Vertx.vertx());
+    private static PromiseInstance promiseInstance = new PromiseInstance(
+        Vertx.currentContext() == null ? Vertx.vertx() : Vertx.currentContext().owner()
+    );
 
     public static void setGlobalVertx(Vertx vertx) {
         Promise.promiseInstance = new PromiseInstance(vertx);
