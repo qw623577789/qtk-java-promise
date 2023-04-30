@@ -39,7 +39,7 @@ public class Promise {
         return new PromiseInstance(vertx);
     }
 
-    static class PromiseInstance {
+    public static class PromiseInstance {
         private final Executor vertxEventLoopExecutor;
         private final Executor vertxWorkerExecutor;
 
@@ -433,6 +433,24 @@ public class Promise {
          */
         public <T> JPromise<T> deferResolve(Supplier<T> deferFunc) {
             return deferResolve(Promise.RunOn.CONTENT_THREAD, deferFunc);
+        }
+
+        /**
+         * 【指定线程】开启惰性resolve模式，后面承接then函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于延后运行同步函数
+         * 例如:Promise.deferResolve(RunOn.xxx).then(n -> calcPI("延后执行同步calcPI函数"))
+         */
+        public <T> JPromise<T> deferResolve(RunOn runOn) {
+            return deferResolve(runOn, () -> null);
+        }
+
+        /**
+         * 【当前线程】惰性resolve模式，后面承接then函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+         * 一般用于延后运行同步函数
+         * 例如:Promise.deferResolve().then(n -> calcPI("延后执行同步calcPI函数"))
+         */
+        public <T> JPromise<T> deferResolve() {
+            return deferResolve(RunOn.CONTENT_THREAD, () -> null);
         }
 
         private final class VertxExecutor implements Executor {
@@ -865,6 +883,24 @@ public class Promise {
      */
     public static <T> JPromise<T> deferResolve(Supplier<T> deferFunc) {
         return promiseInstance.deferResolve(RunOn.CONTENT_THREAD, deferFunc);
+    }
+
+    /**
+     * 【指定线程】开启惰性resolve模式，后面承接then函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+     * 一般用于延后运行同步函数
+     * 例如:Promise.deferResolve(RunOn.xxx).then(n -> calcPI("延后执行同步calcPI函数"))
+     */
+    public static <T> JPromise<T> deferResolve(RunOn runOn) {
+        return promiseInstance.resolve(runOn, () -> null);
+    }
+
+    /**
+     * 【当前线程】惰性resolve模式，后面承接then函数，即只有真正等到触发``async()、block()、await()``时，才触发Promise.resolve
+     * 一般用于延后运行同步函数
+     * 例如:Promise.deferResolve().then(n -> calcPI("延后执行同步calcPI函数"))
+     */
+    public static <T> JPromise<T> deferResolve() {
+        return promiseInstance.deferResolve(RunOn.CONTENT_THREAD, () -> null);
     }
 
     public enum RunOn {

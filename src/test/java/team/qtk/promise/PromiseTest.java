@@ -52,6 +52,7 @@ class PromiseTest {
     @Test
     void resolveBigDecimal() {
         Assertions.assertEquals(Promise.resolve(new BigDecimal("1")).block(), new BigDecimal("1"));
+        Assertions.assertEquals(Promise.setVertx(Vertx.vertx()).resolve(new BigDecimal("1")).block(), new BigDecimal("1"));
     }
 
     @Test
