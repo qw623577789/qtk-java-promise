@@ -26,7 +26,7 @@ ext {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:jasync-mutiny:1.1.1'
+    implementation 'com.github.qw623577789:jasync-mutiny:1.1.2'
     implementation "io.vertx:vertx-core:${vertxVersion}"
     implementation 'io.smallrye.reactive:mutiny:2.0.0'
     implementation 'org.projectlombok:lombok:1.18.22'

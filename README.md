@@ -12,7 +12,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:qtk-java-promise:1.7.5'
+    implementation 'com.github.qw623577789:qtk-java-promise:1.7.6'
     implementation 'io.github.vipcxj:jasync-core:0.1.14'
     implementation 'io.smallrye.reactive:mutiny:2.0.0'
 
