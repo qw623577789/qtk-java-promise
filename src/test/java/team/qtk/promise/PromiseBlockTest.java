@@ -3,36 +3,27 @@
  */
 package team.qtk.promise;
 
-import io.github.vipcxj.jasync.spec.JPromise;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.CompositeFuture;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
-import io.vertx.core.impl.NoStackTraceThrowable;
 import io.vertx.junit5.Checkpoint;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+import lombok.SneakyThrows;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
-
-import lombok.SneakyThrows;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.ExtendWith;
-import team.qtk.promise.Promise.RunOn;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @ExtendWith(VertxExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class PromiseTest {
-
-    @BeforeAll
-    void setPromiseRunMode(Vertx vertx) {
-//        Promise.setGlobalVertx(vertx);
-    }
+class PromiseBlockTest {
 
     @Test
     void resolveInteger() {
@@ -52,7 +43,6 @@ class PromiseTest {
     @Test
     void resolveBigDecimal() {
         Assertions.assertEquals(Promise.resolve(new BigDecimal("1")).block(), new BigDecimal("1"));
-        Assertions.assertEquals(Promise.setVertx(Vertx.vertx()).resolve(new BigDecimal("1")).block(), new BigDecimal("1"));
     }
 
     @Test
@@ -69,26 +59,12 @@ class PromiseTest {
     void resolveFutureError() {
         try {
             Assertions.assertNull(Promise.resolve(Future.failedFuture(new RuntimeException("reject"))).block());
-        } catch (RuntimeException error) {
-            Assertions.assertEquals(error.getMessage(), "reject");
         } catch (Exception error) {
-            Assertions.fail();
-        }
-    }
-
-    @Test
-    void resolveUniSuccess() {
-        Assertions.assertNull(Promise.resolve(Uni.createFrom().nullItem()).block());
-    }
-
-    @Test
-    void resolveUniError() {
-        try {
-            Assertions.assertNull(Promise.resolve(Uni.createFrom().failure(new RuntimeException("reject"))).block());
-        } catch (RuntimeException error) {
-            Assertions.assertEquals(error.getMessage(), "reject");
-        } catch (Exception error) {
-            Assertions.fail();
+            if (error instanceof RuntimeException) {
+                Assertions.assertEquals(error.getMessage(), "reject");
+            } else {
+                Assertions.fail();
+            }
         }
     }
 
@@ -105,7 +81,7 @@ class PromiseTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerId);
-        Assertions.assertTrue(end - start > 2900 && timerIds[0].equals(timerId));
+        Assertions.assertTrue(end - start > 3000 && timerIds[0].equals(timerId));
     }
 
     @Test
@@ -123,7 +99,7 @@ class PromiseTest {
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
         try {
-            Assertions.assertTrue(end - start > 4900 && !timerIds.get(0).equals(timerIds.get(1)));
+            Assertions.assertTrue(end - start > 5000 && !timerIds.get(0).equals(timerIds.get(1)));
             testContext.completeNow();
         } catch (Exception error) {
             testContext.failNow(error);
@@ -163,7 +139,7 @@ class PromiseTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
     }
 
     @SneakyThrows
@@ -181,7 +157,7 @@ class PromiseTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
     }
 
     @Test
@@ -195,15 +171,15 @@ class PromiseTest {
 
         List<Object> timerIds = new ArrayList<>();
         try {
-            timerIds =
-                Promise.all(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future())).block();
+            timerIds = Promise.all(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future())).block();
             Assertions.fail();
         } catch (Exception error) {
             Long end = System.currentTimeMillis();
+            System.out.println(start + ":" + end + ":");
             Assertions.assertTrue(
-                end - start > 2900 &&
-                    timerIds.size() == 0 &&
-                    error.getCause().getMessage().equals("error")
+                end - start > 5000 &&
+                    timerIds.isEmpty() &&
+                    error.getMessage().equals("error")
             );
         }
     }
@@ -225,9 +201,9 @@ class PromiseTest {
         } catch (Exception error) {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
-                end - start > 2900 &&
-                    timerIds.size() == 0 &&
-                    error.getCause().getMessage().equals("error")
+                end - start > 5000 &&
+                    timerIds.isEmpty() &&
+                    error.getMessage().equals("error")
             );
         }
     }
@@ -246,7 +222,7 @@ class PromiseTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
     }
 
     @Test
@@ -263,7 +239,7 @@ class PromiseTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 4900 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
     }
 
     @Test
@@ -284,32 +260,8 @@ class PromiseTest {
             end - start > 5000 &&
                 timerIds.size() == 2 &&
                 (long) timerIds.get(0) == 0 &&
-                ((NoStackTraceThrowable) timerIds.get(1)).getMessage().equals("error")
+                ((RuntimeException) timerIds.get(1)).getMessage().equals("error")
         );
-    }
-
-    @Test
-    void resolvePromiseAllSettleSameTypeError() {
-        Vertx vertx = Vertx.vertx();
-        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
-        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
-        vertx.setTimer(3000, sleep1::complete);
-        vertx.setTimer(5000, timerId -> sleep2.fail("error"));
-
-        Long start = System.currentTimeMillis();
-
-        try {
-            List<Long> timerIds = Promise
-                .allSettledSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
-                .block();
-            Assertions.assertTrue(false);
-        } catch (Exception error) {
-            Long end = System.currentTimeMillis();
-            Assertions.assertTrue(
-                end - start > 5000
-            );
-        }
-
     }
 
     @Test
@@ -382,7 +334,7 @@ class PromiseTest {
                 .raceSameType(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
                 .block();
             Long end = System.currentTimeMillis();
-            Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);
+            Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId != null);
         } catch (Exception error) {
             Assertions.fail();
         }
@@ -405,8 +357,31 @@ class PromiseTest {
         } catch (Exception error) {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
-                end - start > 2900 && end - start < 3500 && error.getCause().getMessage().equals("error")
+                end - start > 2900 && end - start < 3500 && error.getMessage().equals("error")
             );
+        }
+    }
+
+    @Test
+    void resolvePromiseRaceToRecoverError(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(5000, sleep1::complete);
+        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Object timerId = Promise
+                .race(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()).doCatch(throwable -> 110L))
+                .block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(
+                end - start > 2900 && end - start < 3500 && (long) timerId == 110L
+            );
+
+        } catch (Exception error) {
+            Assertions.fail();
         }
     }
 
@@ -425,7 +400,6 @@ class PromiseTest {
                 .block();
             Assertions.fail();
         } catch (Exception error) {
-            error.printStackTrace();
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
                 end - start > 2900 && end - start < 3500
@@ -494,6 +468,26 @@ class PromiseTest {
     }
 
     @Test
+    void resolvePromiseAny2NoErrorRecover(Vertx vertx) {
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+        vertx.setTimer(5000, sleep1::complete);
+        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+
+        Long start = System.currentTimeMillis();
+
+        try {
+            Object timerId = Promise
+                .any(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()).doCatch(throwable -> 110L))
+                .block();
+            Long end = System.currentTimeMillis();
+            Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId instanceof Long && (Long) timerId == 110L);
+        } catch (Exception error) {
+            Assertions.fail();
+        }
+    }
+
+    @Test
     void resolvePromiseAny2SameTypeNoError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
@@ -517,8 +511,8 @@ class PromiseTest {
     void resolvePromiseAnyError(Vertx vertx) {
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
-        vertx.setTimer(5000, timerId -> sleep1.fail("error"));
-        vertx.setTimer(3000, timerId -> sleep2.fail("error"));
+        vertx.setTimer(5000, timerId -> sleep1.fail("error1"));
+        vertx.setTimer(3000, timerId -> sleep2.fail("error2"));
 
         Long start = System.currentTimeMillis();
 
@@ -530,7 +524,7 @@ class PromiseTest {
         } catch (Exception error) {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
-                end - start > 4900 && end - start < 5100 && error.getCause().getMessage().equals("error")
+                end - start > 4900 && end - start < 5100 && error.getMessage().equals("error1")
             );
         }
     }
@@ -561,9 +555,30 @@ class PromiseTest {
     void deferResolve() {
         try {
             Long start = System.currentTimeMillis();
-            JPromise<Long> p = Promise.deferResolve(System::currentTimeMillis);
+            var p = Promise.deferResolve().then(System::currentTimeMillis);
             Thread.sleep(1000);
             Long end = p.block();
+            System.out.println(start + ":" + end + ":" + (end - start));
+            Assertions.assertTrue(end - start > 900);
+        } catch (Exception error) {
+            Assertions.fail();
+        }
+    }
+
+    @Test
+    void deferResolve2() {
+        try {
+            Long start = System.currentTimeMillis();
+
+            Thread.sleep(1000);
+
+            var p = Promise.deferResolve().thenPromise(() -> {
+                var timeFuture = Future.<Long>future(promise -> promise.complete(System.currentTimeMillis()));
+                return Promise.resolve(timeFuture);
+            });
+
+            Long end = p.block();
+            System.out.println(start + ":" + end + ":" + (end - start));
             Assertions.assertTrue(end - start > 900);
         } catch (Exception error) {
             Assertions.fail();
@@ -574,10 +589,12 @@ class PromiseTest {
     void reject() {
         try {
             Promise.reject().block();
-        } catch (RuntimeException error) {
-            Assertions.assertEquals(error.getMessage(), "reject");
         } catch (Exception error) {
-            Assertions.fail();
+            if (error instanceof RuntimeException) {
+                Assertions.assertEquals(error.getMessage(), "reject");
+            } else {
+                Assertions.fail();
+            }
         }
     }
 
@@ -585,10 +602,12 @@ class PromiseTest {
     void rejectCustomError() {
         try {
             Promise.reject(new NullPointerException()).block();
-        } catch (NullPointerException error) {
-            Assertions.assertTrue(true);
         } catch (Exception error) {
-            Assertions.fail();
+            if (error instanceof NullPointerException) {
+                Assertions.assertTrue(true);
+            } else {
+                Assertions.fail();
+            }
         }
     }
 
@@ -596,196 +615,469 @@ class PromiseTest {
     @SneakyThrows
     void then(VertxTestContext testContext) {
         Vertx vertx = Vertx.vertx();
+
         io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
-        io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
-        vertx.setTimer(3000, sleep1::complete);
-        vertx.setTimer(5000, sleep2::complete);
+        var t1 = vertx.setTimer(3000, sleep1::complete);
 
         Long start = System.currentTimeMillis();
-        Promise
-            .resolve(sleep1.future())
-            .then(timerId -> Promise.resolve(sleep2.future()))
+
+        Promise.resolve(sleep1.future())
+            .thenFuture(() -> {
+                io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+                var t2 = vertx.setTimer(5000, sleep2::complete);
+                return sleep2.future();
+            })
+            .then(
+                timerId -> {
+                    Long end = System.currentTimeMillis();
+
+                    System.out.println(start + ":" + end + ":" + (end - start));
+                    try {
+                        Assertions.assertTrue(end - start > 8000 && end - start < 8500 && timerId == 1L);
+                        testContext.completeNow();
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                    }
+                }
+            )
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenConsumer(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .then(
+                timerId -> {
+                    Long end = System.currentTimeMillis();
+
+                    System.out.println(start + ":" + end + ":" + (end - start));
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId == 0);
+                        testContext.completeNow();
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                    }
+                }
+            )
+            .then(testContext::completeNow)
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenRunnable(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .then(
+                () -> {
+                    Long end = System.currentTimeMillis();
+
+                    System.out.println(start + ":" + end + ":" + (end - start));
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100);
+
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                    }
+                }
+            )
+            .then(testContext::completeNow)
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenFunction(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
             .then(
                 timerId -> {
                     Long end = System.currentTimeMillis();
 
                     try {
-                        Assertions.assertTrue(end - start > 4900 && end - start < 5100 && timerId == 1);
-                        testContext.completeNow();
-                    } catch (Exception error) {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId == 0);
+                        return 2;
+                    } catch (Throwable error) {
                         testContext.failNow(error);
+                        return -1;
                     }
 
-                    return Promise.resolve();
                 }
             )
-            .async();
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
     }
 
     @Test
     @SneakyThrows
-    void thenTryCatchFinally(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint checkpoint = testContext.checkpoint(1);
+    void thenSupplier(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .then(
+                () -> {
+                    Long end = System.currentTimeMillis();
+
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100);
+                        return 2;
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                        return -1;
+                    }
+
+                }
+            )
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenPromiseFunction(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenPromise(
+                timerId -> {
+                    Long end = System.currentTimeMillis();
+
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId == 0);
+                        return Promise.resolve(2);
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                        return Promise.resolve(-1);
+                    }
+
+                }
+            )
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenPromiseSupplier(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenPromise(
+                () -> {
+                    Long end = System.currentTimeMillis();
+
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100);
+                        return Promise.resolve(2);
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                        return Promise.resolve(-1);
+                    }
+
+                }
+            )
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenPromise(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenPromise(Promise.resolve(2))
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenFutureFunction(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenFuture(
+                timerId -> {
+                    Long end = System.currentTimeMillis();
+
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId == 0);
+                        return Future.succeededFuture(2);
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                        return Future.succeededFuture(-1);
+                    }
+
+                }
+            )
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenFutureSupplier(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenFuture(
+                () -> {
+                    Long end = System.currentTimeMillis();
+
+                    try {
+                        Assertions.assertTrue(end - start > 2900 && end - start < 3100);
+                        return Future.succeededFuture(2);
+                    } catch (Throwable error) {
+                        testContext.failNow(error);
+                        return Future.succeededFuture(-1);
+                    }
+
+                }
+            )
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenFuture(VertxTestContext testContext) {
+        Vertx vertx = Vertx.vertx();
+
+        io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+        var t1 = vertx.setTimer(3000, sleep1::complete);
+
+        Long start = System.currentTimeMillis();
+
+        Promise.resolve(sleep1.future())
+            .thenFuture(Future.succeededFuture(2))
+            .then(lastResult -> {
+                if (lastResult == 2) {
+                    testContext.completeNow();
+                } else {
+                    testContext.failNow("返回值有误");
+                }
+            })
+            .block();
+    }
+
+    @Test
+    @SneakyThrows
+    void thenTryCatch(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(2);
 
         io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
         io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
         vertx.setTimer(3000, sleep3s::complete); //睡眠3s后返回timerId
         vertx.setTimer(5000, sleep5s::complete); //睡眠5s后返回timerId
 
-        Promise
+        var result = Promise
             .resolve(sleep3s.future())
-            .then(() -> Promise.reject("在这里抛了个错。。。"))
-            .then(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
+            .then(sleep3sTimerId -> {
+                if (1 == 1) throw new RuntimeException("在这里抛了个错。。。");
+                return sleep3sTimerId;
+            })
+            .thenPromise(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
             .then(
                 sleep5sTimerId -> {
                     System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
-                    return Promise.resolve();
                 }
             )
-            .doCatch(
-                Exception.class,
-                error -> {
-                    checkpoint.flag();
-                    System.out.println("抓到了一个错误:" + error.getMessage());
+            .doCatch(error -> {
+                checkpoint.flag();
+                System.out.println("抓到了一个错误:" + error.getMessage());
+            })
+            .block();
+        if (result == null) {
+            checkpoint.flag();
+        } else {
+            testContext.failNow("返回值有误");
+        }
+    }
+
+    @Test
+    @SneakyThrows
+    void thenTryCatchReturnValue(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(2);
+
+        io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep3s::complete); //睡眠3s后返回timerId
+        vertx.setTimer(5000, sleep5s::complete); //睡眠5s后返回timerId
+
+        var result = Promise
+            .resolve(sleep3s.future())
+            .then(sleep3sTimerId -> {
+                if (1 == 1) throw new RuntimeException("在这里抛了个错。。。");
+                return sleep3sTimerId;
+            })
+            .thenPromise(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
+            .then(
+                sleep5sTimerId -> {
+                    System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
+                    return 0;
                 }
             )
+            .doCatch(error -> {
+                checkpoint.flag();
+                System.out.println("抓到了一个错误:" + error.getMessage());
+                return 1;
+            })
+            .block();
+        if (result == 1) {
+            checkpoint.flag();
+        } else {
+            testContext.failNow("返回值有误");
+        }
+    }
+
+    @Test
+    @SneakyThrows
+    void thenTryCatchFinally(Vertx vertx, VertxTestContext testContext) {
+        Checkpoint checkpoint = testContext.checkpoint(3);
+
+        io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
+        io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
+        vertx.setTimer(3000, sleep3s::complete); //睡眠3s后返回timerId
+        vertx.setTimer(5000, sleep5s::complete); //睡眠5s后返回timerId
+
+        var result = Promise
+            .resolve(sleep3s.future())
+            .then(sleep3sTimerId -> {
+                if (1 == 1) throw new RuntimeException("在这里抛了个错。。。");
+                return sleep3sTimerId;
+            })
+            .thenPromise(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
+            .then(
+                sleep5sTimerId -> {
+                    System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
+                }
+            )
+            .doCatch(error -> {
+                checkpoint.flag();
+                System.out.println("抓到了一个错误:" + error.getMessage());
+            })
             .doFinally(
                 () -> {
                     System.out.println("finally");
-                    if (testContext.unsatisfiedCheckpointCallSites().size() == 1) {
-                        testContext.failNow("没有成功catch");
-                    } else {
-                        testContext.completeNow();
-                    }
-
-                    return Promise.resolve();
-                }
-            )
-            .async();
-    }
-
-    @Test
-    void resolveRunOnCurrentThread(Vertx vertx, VertxTestContext testContext) {
-        Promise
-            .deferResolve(
-                RunOn.CONTENT_THREAD,
-                () -> {
-                    if (!Thread.currentThread().getName().contains("Test worker")) {
-                        testContext.failNow("运行的线程错误");
-                    } else {
-                        testContext.completeNow();
-                    }
-
-                    System.out.println(Thread.currentThread().getName());
-                    return null;
+                    checkpoint.flag();
                 }
             )
             .block();
-    }
+        if (result == null) {
+            checkpoint.flag();
 
-    @Test
-    void resolveRunOnEventLoopThread(Vertx vertx, VertxTestContext testContext) {
-        Promise
-            .deferResolve(
-                RunOn.VERTX_EVENT_LOOP_THREAD,
-                () -> {
-                    if (!Thread.currentThread().getName().contains("eventloop")) {
-                        testContext.failNow("运行的线程错误");
-                    } else {
-                        testContext.completeNow();
-                    }
+            if (!testContext.unsatisfiedCheckpointCallSites().isEmpty()) {
+                testContext.failNow("没有成功catch");
+            } else {
+                testContext.completeNow();
+            }
 
-                    System.out.println(Thread.currentThread().getName());
-                    return null;
-                }
-            )
-            .block();
-    }
-
-    @Test
-    void resolveRunOnWorkerThread(Vertx vertx, VertxTestContext testContext) {
-        Promise
-            .deferResolve(
-                RunOn.VERTX_WORKER_THREAD,
-                () -> {
-                    if (!Thread.currentThread().getName().contains("worker")) {
-                        testContext.failNow("运行的线程错误");
-                    } else {
-                        testContext.completeNow();
-                    }
-
-                    System.out.println(Thread.currentThread().getName());
-                    return null;
-                }
-            )
-            .block();
-    }
-
-    @Test
-    void resolveRunOnWorkerThreadThen(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint checkpoint = testContext.checkpoint(2);
-        Promise
-            .resolve(RunOn.VERTX_WORKER_THREAD)
-            .then(
-                resolver -> {
-                    if (Thread.currentThread().getName().contains("worker")) checkpoint.flag();
-                    return Promise.resolve();
-                }
-            )
-            .then(
-                resolver -> {
-                    if (Thread.currentThread().getName().contains("worker")) checkpoint.flag();
-                    return Promise.resolve();
-                }
-            )
-            .block();
-        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
-            testContext.failNow("线程运行错误");
         } else {
-            testContext.completeNow();
+            testContext.failNow("返回值有误");
         }
     }
 
-    /**
-     * vertx Future属于一旦定义就直接运行那种，所以需要使用deferPromiseResolve才能真正实现设置线程
-     */
     @Test
-    void deferPromiseChangeThreadSuccess(Vertx vertx, VertxTestContext testContext) {
-        Checkpoint checkpoint = testContext.checkpoint(1);
-
-        Promise
-            .resolve(
-                RunOn.VERTX_WORKER_THREAD,
-                () -> {
-                    Future<Void> future = Future.future(
-                        handler -> {
-                            if (Thread.currentThread().getName().contains("worker")) checkpoint.flag();
-                            handler.complete();
-                        }
-                    );
-                    return Promise.resolve(future);
-                }
-            )
-            .block();
-
-        if (testContext.unsatisfiedCheckpointCallSites().size() != 0) {
-            testContext.failNow("线程运行错误");
-        } else {
-            testContext.completeNow();
+    void blockTimeout() {
+        try {
+            Promise.<Long>resolve(doneCallback -> Vertx.vertx().setTimer(3000, doneCallback))
+                .block(200, TimeUnit.MICROSECONDS);
+            Assertions.fail();
+        } catch (Throwable error) {
+            Assertions.assertTrue(true);
         }
-    }
-
-    JPromise<Boolean> resolveChangeThreadSuccessSubFunc() {
-        System.out.println(Thread.currentThread().getName());
-        return Promise.resolve(Thread.currentThread().getName().contains("worker"));
-    }
-
-    @Test
-    void resolveChangeThreadSuccess(Vertx vertx) {
-        boolean isSuccess = Promise
-            .resolve(RunOn.VERTX_WORKER_THREAD, this::resolveChangeThreadSuccessSubFunc)
-            .block();
-
-        Assertions.assertTrue(isSuccess);
     }
 }

@@ -1,8 +1,9 @@
 QTK-Java-Promise
 ================
-基于[jasync-multiny](https://github.com/qw623577789/jasync-mutiny)封装的类似ES的Promise异步对象,支持async-await模式，实现**异步执行async模式、同步阻塞返回block模式**，关键能**让开发者以传统顺序的方式编写异步代码！！！！**
 
-## Installation
+2.X版本基于 ``Vertx.Future-JDK虚拟线程``封装的类似ES的Promise异步对象,支持block-async-await模式，实现**异步执行async模式、同步阻塞返回block模式**，关键能**让开发者以传统顺序的方式编写异步代码！！！！**
+
+## 安装
 
 ```groovy
 //gradle
@@ -12,57 +13,133 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:qtk-java-promise:1.7.6'
-    implementation 'io.github.vipcxj:jasync-core:0.1.14'
-    implementation 'io.smallrye.reactive:mutiny:2.0.0'
-
-    // annotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    annotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
-
-    // testAnnotationProcessor 'org.projectlombok:lombok:1.18.22' 若用上lombok，要放在前面
-    testAnnotationProcessor 'io.github.vipcxj:jasync-core:0.1.14'
+    implementation 'com.github.qw623577789:qtk-java-promise:2.0.0'
 }
 ```
 
-## Features
+## 特性
+
 - 类似ES的Promise.resolve/reject/all/allSettled/race/any/then...catch...finally...功能
-- 支持惰性resolve模式，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
-- 支持[smallrye-mutiny](https://smallrye.io/smallrye-mutiny/index.html)的Event-Driven Reactive库的``Uni``、[Vertx](https://vertx.io/)的``Future/Consumer<Handler<T>>/CompositeFuture``转为Promise对象，满足在异步数据处理场景的大部分需求
+- 支持惰性resolve模式，即只有真正等到触发 ``async()、block()、awiat()``时，才触发Promise.resolve
+- 支持[Vertx](https://vertx.io/)的 ``Future/Consumer<Handler<T>>/CompositeFuture``转为Promise对象，满足在异步数据处理场景的大部分需求
 - 支持类似ES6的 **Promise.resolve().then().then()...catch...finally...** 链式写法与ES7的 **Promise.resolve().await()**
-- 支持指定运行线程，默认是``CONTENT_THREAD``(当前上下文线程)，可以指定``VERTX_EVENT_LOOP_THREAD``(Vertx事件循环线程)、``VERTX_WORKER_THREAD``(Vertx工作线程)
+- 相对于1.X版本，对代码无入侵，无额外注解，原生支持jdk新语法
 
-## Function
+## 方法
 
-- **JPromise\<Void> resolve()** 包装null值的Promise
-- **JPromise\<T> resolve(T value)** 包装对象成Promise
-- ***JPromise\<T> resolve(PromiseSupplier\<T> promiseSupplier)** 包装异步函数,作用等同于``Promise.resolve().then(() -> promiseSupplier)``
-- **JPromise\<T> resolve(Future\<T> future)** 将[Vertx.Future](https://vertx.io/docs/vertx-core/java/#_future_results)异步对象包装成Promise,并可等待获取结果值
-- **JPromise<List\<T>> resolve(CompositeFuture future)** 将[Vertx.CompositeFuture](https://vertx.io/docs/vertx-core/java/#_future_coordination)【vertx下的promise.all/race/any/join功能的实现】异步对象包装成Promise,并可依次返回结果
-- **JPromise\<T> resolve(Consumer<Handler\<T>> consumer)** 包装一个lambda函数，当传入的参数(是一个方法)被调用时，返回结果值
-- **JPromise\<Void\> resolve(RunOn runOn)** 指定resolve运行线程，后面的...then...then...将在对应线程运行
-- **JPromise\<Void\> resolve(RunOn runOn, PromiseSupplier\<T\> promiseSupplier)** 惰性resolve模式**指定Promise运行线程**执行异步函数，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
-- **JPromise\<Void\> resolve(RunOn runOn, Supplier\<T\> supplier)** 惰性resolve模式**指定Promise运行线程**执行同步函数，即只有真正等到触发``async()、block()、awiat()``时，才触发Promise.resolve
-- **JPromise\<T> resolve(Uni\<T> value)** 包装[smallrye-mutiny.Uni](https://smallrye.io/smallrye-mutiny/getting-started/creating-unis)异步对象成Promise,并可等待获取结果值
-- **JPromise\<T> resolve(\<JPromise\<T> promise)** 二次包装JPromise成Promise对象，可设置执行线程
-- **JPromise\<T> deferResolve(Supplier\<T> deferFunc)** 包装lambda表达式(**返回同步结果**)成Promise对象，当触发``async()、block()、await()``时，才执行lambda方法触发Promise.resolve
-- **JPromise\<List\<Object>> all(JPromise<?>... promises)** 并发执行多个Promise，并将结果依次返回。**若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
-- **JPromise\<List\<Object>> allSettled(JPromise<?>... promises)** 并发执行多个Promise，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
-- **JPromise\<Object> race(JPromise<?>... promises)** 并发执行多个Promise，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
-- **JPromise\<Object> any(JPromise<?>... promises)** 并发执行多个Promise，当其中某个Promise出**正常结果时(抛错则跳过，继续等待)，立即返回该结果**。
-- **JPromise\<List\<T>> allSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
-- **JPromise\<List\<T>> allSettledSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
-- **JPromise\<T> raceSameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
-- **JPromise\<T> anySameType(JPromise<T>... promises)** 并发执行多个**同类型Promise**，当其中某个Promise出**正常结果时(抛错则跳过，继续等待)，立即返回该结果**。
-- **<T> JPromise<T> reject()** 异步抛出``RuntimeException``错误
-- **<T> JPromise<T> reject(String errorMessage)** 异步抛出``RuntimeException(errorMessage)``错误
-- **<T> JPromise<T> reject(Throwable t)** 异步抛出自定义错误
-- 通过``Promise.setVertx()/setGlobalVertx()``指定本次或者全局的Vertx实例，由Vertx提供、管理线程池。上述每个方法第一个参数支持传``RunOn``参数指定运行线程
+- **Async\<Void> resolve()** 包装null值的Promise
+- **Async\<T> resolve(T value)** 包装对象成Promise
+- **Async\<T> resolve(Supplier\<T> supplier)** 包装异步函数,作用等同于 ``Promise.resolve().then(supplier)``
+- **Async\<T> resolve(Future\<T> future)** 将[Vertx.Future](https://vertx.io/docs/vertx-core/java/#_future_results)异步对象包装成Promise,并可等待获取结果值
+- **Async<List\<T>> resolve(CompositeFuture future)** 将[Vertx.CompositeFuture](https://vertx.io/docs/vertx-core/java/#_future_coordination)【vertx下的promise.all/race/any/join功能的实现】异步对象包装成Promise,并可依次返回结果
+- **Async\<T> resolve(Consumer<Handler\<T>> consumer)** 包装一个lambda函数，当传入的参数(是一个方法)被调用时，返回结果值
+- **Async\<T> deferResolve()** 开启惰性resolve模式，与 ``Promise.resolve()``相比，即只有真正等到触发 ``async()、block()、awiat()``时，才触发执行链。
+- **Async\<List\<Object>> all(Async<?>... promises)** 并发执行多个Promise，并将结果依次返回。 **若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
+- **Async\<List\<Object>> allSettled(Async<?>... promises)** 并发执行多个Promise，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
+- **Async\<Object> race(Async<?>... promises)** 并发执行多个Promise，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
+- **Async\<Object> any(Async<?>... promises)** 并发执行多个Promise，当其中某个Promise出**正常结果时(抛错则跳过，继续等待)，立即返回该结果**。
+- **Async\<List\<T>> allSameType(Async<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误**
+- **Async\<List\<T>> allSettledSameType(Async<T>... promises)** 并发执行多个**同类型Promise**，并将结果依次返回。**将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error**
+- **Async\<T> raceSameType(Async<T>... promises)** 并发执行多个**同类型Promise**，**当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果**。
+- **Async\<T> anySameType(Async<T>... promises)** 并发执行多个**同类型Promise**，当其中某个Promise出*正常结果时(抛错则跳过，继续等待)，立即返回该结果*
+- **<T> Async<T> reject()** 异步抛出 ``RuntimeException``错误
+- **<T> Async<T> reject(String errorMessage)** 异步抛出 ``RuntimeException(errorMessage)``错误
+- **<T> Async<T> reject(Throwable t)** 异步抛出自定义错误
+- Promise.resolve().then(xx).thenFuture(xx).thenPromise(xxx).doCatch(xxx).finally(xxx)
+- ``block()/block(long timeout, TimeUnit unit)``同步阻塞模式、``async()``异步非阻塞模式、``await()``异步阻塞模式
 
+## 用法
 
-## Usage
+更多例子可以看测试用例
 
-- then方法必须返回Promise对象
-- 使用``await()``方法的函数必须加``@Async()``注解，并且返回Promise对象
+- then方法返回值必须为同步对象(大部分对象都是这个)
+- thenPromise方法返回值必须为Async对象
+- thenFuture方法返回值必须为Vertx.Future对象
+
+**await依赖了Vertx的 ``VirtualThreadContext``上下文，在运行环境没有Vertx实例、或者不在 ``VirtualThreadContext``上下文情况下，会自动创建 ``VirtualThreadContext``上下文。 但是每次await自动创建 ``VirtualThreadContext``上下文并不是一个好的选择，这会导致 ``ThreadLocal.get/set``、``Vertx.currentContext().get/put``在返回类型为Async的函数里没法正常工作(可以理解为已经切换到其他线程)**，且实际是阻塞当前线程模式运行
+
+正确使用应如下：
+
+```jshelllanguage
+ThreadLocal threadLocal = new ThreadLocal();
+
+// 包在虚拟线程上下文内执行所有的await，保证所有await都在同一个虚拟线程内运行
+((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> { 
+     threadLocal.set("使用threadLocal存储值");
+     Vertx.currentContext().put("key", "使用threadLocal存储值");
+     xxxx1.await(); 
+     xxxx2.await();
+     method1.await();
+     method2();
+     System.out.println(threadLocal.get()); //输出"使用threadLocal存储值"
+     System.out.println(Vertx.currentContext().get("key")); //输出"使用Vertx.currentContext存储值"
+ });
+ 
+Async<String> method1() {
+    //输出"使用threadLocal存储值"，没上述套在runOnContext里的话，method1会在新的上下文执行，这里将取不到值
+    System.out.println(threadLocal.get());
+
+    //输出"使用Vertx.currentContext存储值"，没上述套在runOnContext里的话，method1会在新的上下文执行，这里将取不到值
+    System.out.println(Vertx.currentContext().get("key")); 
+    return Promise.resolve("method1");
+}
+
+String method2() {
+    System.out.println(threadLocal.get()); //输出"使用threadLocal存储值"
+    System.out.println(Vertx.currentContext().get("key")); //输出"使用Vertx.currentContext存储值"
+    xxxx3.await();
+    return "method1";
+  } 
+```
+
+项目中使用，假设web框架可以这样封装使用
+
+```java
+package team.qtk.promise;
+
+import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.impl.VertxImpl;
+import io.vertx.core.json.JsonObject;
+
+import java.util.function.Function;
+
+public class T {
+    public static void main(String[] args) {
+        Vertx vertx = Vertx.vertx();
+        HttpServer server = vertx.createHttpServer();
+        server.requestHandler(request -> {
+
+            // 开启一个虚拟线程处理当前请求
+            ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+                Promise.resolve(request.body())
+                    .then(body -> { return handler(body.toJsonObject());})
+                    .then(responseJson -> {
+                        HttpServerResponse response = request.response();
+                        response.putHeader("content-type", "text/plain");
+                        response.setStatusCode(200).end(responseJson.toString());
+                    })
+                    .doCatch(error -> {
+                        HttpServerResponse response = request.response();
+                        response.putHeader("content-type", "text/plain");
+                        response.setStatusCode(500).end(error.getMessage());
+                    })
+                    .async();
+            });
+        });
+
+        server.listen(8080);
+    }
+
+    static JsonObject handler(JsonObject body) {
+        System.out.println(body.toString());
+        //xxxx.await(); 此时已经在虚拟线程上下文中，不会再创建新的上下文
+        return body;
+    }
+}
+```
 
 #### Promise链式异步非阻塞写法
 
@@ -75,10 +152,10 @@ void test() {
 
     Promise
         .resolve(sleep3s.future())
-        .then(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
+        .thenFuture(sleep3sTimerId -> sleep5s.future())
         .then(sleep5sTimerId -> {
             System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
-            return Promise.resolve();
+            return sleep5sTimerId;
         })
         .async();
 }
@@ -95,7 +172,7 @@ void test() {
 
     long sleep5sTimerId = Promise
         .resolve(sleep3s.future())
-        .then(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
+        .thenFuture(sleep3sTimerId -> sleep5s.future())
         .block();
 
     System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
@@ -103,39 +180,40 @@ void test() {
 ```
 
 #### Promise链式then...catch...finally写法
-```java
-void test() {
-    io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
-    io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
-    vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
-    vertx.setTimer(5000, timerId -> sleep5s.complete(timerId)); //睡眠5s后返回timerId
 
-    Promise
-        .resolve(sleep3s.future())
-        .then(() -> {
-            return Promise.reject("在这里抛了个错。。。");
-        })
-        .then(sleep3sTimerId -> Promise.resolve(sleep5s.future()))
-        .then(sleep5sTimerId -> {
-            System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
-            return Promise.resolve();
-        })
-        .doCatch(Exception.class, error -> {
-            System.out.println("抓到了一个错误:" + error.getMessage());
-        })
-        .doFinally(() -> {
-            System.out.println("finally");
-            return Promise.resolve();
-        })
-        .async();
-}
+void test() {
+io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
+io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
+vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
+vertx.setTimer(5000, timerId -> sleep5s.complete(timerId)); //睡眠5s后返回timerId
+
 ```
+Promise
+    .resolve(sleep3s.future())
+    .then(() -> {
+        throw new RuntimeException("在这里抛了个错。。。");
+    })
+    .thenFuture(sleep3sTimerId -> sleep5s.future())
+    .then(sleep5sTimerId -> {
+        System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
+        return sleep5sTimerId;
+    })
+    .doCatch(error -> {
+        System.out.println("抓到了一个错误:" + error.getMessage());
+    })
+    .doFinally(() -> {
+        System.out.println("finally");
+    })
+    .async();
+```
+
+}
 
 #### await异步非阻塞写法
 
 ```java
-@Async
-private JPromise<Void> test() {
+
+private Async<Void> test() {
     io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
     io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
     vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
@@ -148,20 +226,17 @@ private JPromise<Void> test() {
     long sleep5sTimerId = Promise.resolve(sleep5s.future()).await();
 
     System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
-
-    // @Async注解的函数必须返回Promise
-    return Promise.resolve(); 
 }
 
-// 调用
+// 最好在一个``VirtualThreadContext``调用
 test().async();
 ```
 
 #### await异步阻塞写法
 
 ```java
-@Async
-private JPromise<Long> test() {
+
+private Async<Long> test() {
     io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
     io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
     vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
@@ -175,18 +250,19 @@ private JPromise<Long> test() {
 
     System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
 
-    return Promise.resolve(sleep5sTimerId)
+    return Promise.resolve(sleep5sTimerId);
 }
 
-// 调用
-System.out.println(test().block()); //输出sleep5sTimerId值
+// 最好在一个``VirtualThreadContext``调用
+//输出sleep5sTimerId值，block为阻塞当前线程模式获取结果，test方法里的await是非阻塞模式运行
+System.out.println(test().block()); 
 ```
 
 #### await try...catch...写法
 
 ```java
-@Async
-private JPromise<Void> test() {
+
+private test() {
     io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
     io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
     vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
@@ -202,61 +278,16 @@ private JPromise<Void> test() {
 
     try {
         Promise.reject("在这里抛了个错。。。").await();
-    }
-    catch(Exception error) {
+    } catch (Exception error) {
         System.out.println("抓到了一个错误:" + error.getMessage());
     }
-
-    // @Async注解的函数必须返回Promise
-    return Promise.resolve(); 
 }
 
-// 调用
-test().async();
-```
-
-#### 终止执行异步方法
-
-```java
-@Async
-private JPromise<Void> test() {
-    io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
-    io.vertx.core.Promise<Long> sleep5s = io.vertx.core.Promise.promise();
-    vertx.setTimer(3000, timerId -> sleep3s.complete(timerId)); //睡眠3s后返回timerId
-    vertx.setTimer(5000, timerId -> sleep5s.complete(timerId)); //睡眠5s后返回timerId
-
-    long sleep3sTimerId = Promise.resolve(sleep3s.future()).await();
-
-    System.out.println("sleep3sTimerId is:" + sleep3sTimerId);
-
-    long sleep5sTimerId = Promise.resolve(sleep5s.future()).await();
-
-    System.out.println("sleep5sTimerId is:" + sleep5sTimerId);
-
-    try {
-        Promise.reject("在这里抛了个错。。。").await();
-    }
-    catch(Exception error) {
-        System.out.println("抓到了一个错误:" + error.getMessage());
-    }
-
-    // @Async注解的函数必须返回Promise
-    return Promise.resolve(); 
-}
-
-Handle task = test().async();
-
-System.out.println("isCanceled:" + task.isCanceled);
-
-// 4秒后终止异步任务
-vertx.setTimer(4000, timerId -> task.cancel());
-
+// 在一个``VirtualThreadContext``调用
+test();
 ```
 
 ## Notice
-- 本组件仅支持javac(Sun JDK)编译器，不支持ecj(ellipse for Java)编译器
 
-## Debug when compile error
-- 有提示报错的位置的，在对应的报错函数上``Async``注解打开``logResultTree = true``即可打印转化后的代码
-- 没有提示具体错误的，``compileJava``进行调试，断点定位在``io.github.vipcxj.jasync.core.AsyncProcessor#process``第94行，查看``element.name与element.owner``找到错误的类名与方法
-- 项目若同时使用``lombok``，``annotationProcessor 'org.projectlombok:lombok:xxx'``应该写于``annotationProcessor 'io.github.vipcxj:jasync-core:xxx'``前面
+- 本组件仅支持JDK21以上的版本
+- 与1.x版本相比，不写 ``async()、block()、awiat()``也会自动异步执行！！！，其实就是跟nodejs的async函数一样了
