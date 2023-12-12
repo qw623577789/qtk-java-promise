@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:qtk-java-promise:2.0.1'
+    implementation 'com.github.qw623577789:qtk-java-promise:2.0.2'
 }
 ```
 

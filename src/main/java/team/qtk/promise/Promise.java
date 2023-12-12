@@ -151,6 +151,11 @@ public class Promise {
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.apply(lastValue);
+
+                        // 若有惰性resolve，则进行触发
+                        if (!secondValue.getDeferPromises().isEmpty())
+                            secondValue.getDeferPromises().forEach(io.vertx.core.Promise::complete);
+
                         return secondValue.getFuture();
                     } catch (Throwable error) {
                         return Future.failedFuture(error);
@@ -165,6 +170,11 @@ public class Promise {
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.get();
+
+                        // 若有惰性resolve，则进行触发
+                        if (!secondValue.getDeferPromises().isEmpty())
+                            secondValue.getDeferPromises().forEach(io.vertx.core.Promise::complete);
+
                         return secondValue.getFuture();
                     } catch (Throwable error) {
                         return Future.failedFuture(error);
@@ -173,12 +183,16 @@ public class Promise {
                 .build();
         }
 
-        public <NEW_T> Async<NEW_T> thenPromise(Async<NEW_T> thenFunc) {
+        public <NEW_T> Async<NEW_T> thenPromise(Async<NEW_T> promise) {
             return Async.<NEW_T>builder()
                 .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
-                        return thenFunc.getFuture();
+                        // 若有惰性resolve，则进行触发
+                        if (!promise.getDeferPromises().isEmpty())
+                            promise.getDeferPromises().forEach(io.vertx.core.Promise::complete);
+
+                        return promise.getFuture();
                     } catch (Throwable error) {
                         return Future.failedFuture(error);
                     }
@@ -386,7 +400,9 @@ public class Promise {
         var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
             .map(promise -> {
+                // 若有惰性resolve，则进行合并
                 if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+                
                 return promise.getFuture();
             })
             .toList();
@@ -425,7 +441,9 @@ public class Promise {
         var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
             .map(promise -> {
+                // 若有惰性resolve，则进行合并
                 if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+
                 return promise.getFuture();
             })
             .map(f -> f.recover(throwable -> throwable instanceof NoStackTraceThrowable ?
@@ -465,7 +483,9 @@ public class Promise {
         var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
             .map(promise -> {
+                // 若有惰性resolve，则进行合并
                 if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+
                 return promise.getFuture();
             })
             .map(f -> f.recover(throwable -> throwable instanceof NoStackTraceThrowable ?
@@ -523,7 +543,9 @@ public class Promise {
         var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
             .map(promise -> {
+                // 若有惰性resolve，则进行合并
                 if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+
                 return promise.getFuture();
             })
             .toList();

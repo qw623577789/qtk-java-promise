@@ -1033,6 +1033,42 @@ class PromiseAwaitTest {
 
     @Test
     @SneakyThrows
+    void thenPromiseFunctionDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+
+            io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+            var t1 = vertx.setTimer(3000, sleep1::complete);
+
+            Long start = System.currentTimeMillis();
+
+            Promise.resolve(sleep1.future())
+                .thenPromise(
+                    timerId -> {
+                        Long end = System.currentTimeMillis();
+
+                        try {
+                            Assertions.assertTrue(end - start > 2900 && end - start < 3100 && timerId == 0);
+                            return Promise.deferResolve().then(() -> 2);
+                        } catch (Throwable error) {
+                            testContext.failNow(error);
+                            return Promise.resolve(-1);
+                        }
+
+                    }
+                )
+                .then(lastResult -> {
+                    if (lastResult == 2) {
+                        testContext.completeNow();
+                    } else {
+                        testContext.failNow("返回值有误");
+                    }
+                })
+                .await();
+        });
+    }
+
+    @Test
+    @SneakyThrows
     void thenPromiseSupplier(Vertx vertx, VertxTestContext testContext) {
         ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
 
@@ -1069,6 +1105,42 @@ class PromiseAwaitTest {
 
     @Test
     @SneakyThrows
+    void thenPromiseSupplierDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+
+            io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+            var t1 = vertx.setTimer(3000, sleep1::complete);
+
+            Long start = System.currentTimeMillis();
+
+            Promise.resolve(sleep1.future())
+                .thenPromise(
+                    () -> {
+                        Long end = System.currentTimeMillis();
+
+                        try {
+                            Assertions.assertTrue(end - start > 2900 && end - start < 3100);
+                            return Promise.deferResolve().then(() -> 2);
+                        } catch (Throwable error) {
+                            testContext.failNow(error);
+                            return Promise.resolve(-1);
+                        }
+
+                    }
+                )
+                .then(lastResult -> {
+                    if (lastResult == 2) {
+                        testContext.completeNow();
+                    } else {
+                        testContext.failNow("返回值有误");
+                    }
+                })
+                .await();
+        });
+    }
+
+    @Test
+    @SneakyThrows
     void thenPromise(Vertx vertx, VertxTestContext testContext) {
         ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
 
@@ -1079,6 +1151,29 @@ class PromiseAwaitTest {
 
             Promise.resolve(sleep1.future())
                 .thenPromise(Promise.resolve(2))
+                .then(lastResult -> {
+                    if (lastResult == 2) {
+                        testContext.completeNow();
+                    } else {
+                        testContext.failNow("返回值有误");
+                    }
+                })
+                .await();
+        });
+    }
+
+    @Test
+    @SneakyThrows
+    void thenPromiseDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+
+            io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+            var t1 = vertx.setTimer(3000, sleep1::complete);
+
+            Long start = System.currentTimeMillis();
+
+            Promise.resolve(sleep1.future())
+                .thenPromise(Promise.deferResolve().then(() -> 2))
                 .then(lastResult -> {
                     if (lastResult == 2) {
                         testContext.completeNow();
