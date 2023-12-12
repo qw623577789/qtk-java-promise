@@ -182,6 +182,33 @@ class PromiseAwaitTest {
         });
     }
 
+    @Test
+    void resolvePromiseAllDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+            var p1 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+                vertx.setTimer(3000, sleep1::complete);
+                return Promise.resolve(sleep1.future());
+            });
+
+            var p2 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+                vertx.setTimer(5000, sleep2::complete);
+                return Promise.resolve(sleep2.future());
+            });
+
+            Long start = System.currentTimeMillis();
+
+            List<Object> timerIds = Promise
+                .all(p1, p2)
+                .await();
+            Long end = System.currentTimeMillis();
+            System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
+            Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
+            testContext.completeNow();
+        });
+    }
+
     @SneakyThrows
     @Test
     void resolvePromiseAllSameType(Vertx vertx, VertxTestContext testContext) {
@@ -278,6 +305,33 @@ class PromiseAwaitTest {
     }
 
     @Test
+    void resolvePromiseAllSettleDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+            var p1 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+                vertx.setTimer(3000, sleep1::complete);
+                return Promise.resolve(sleep1.future());
+            });
+
+            var p2 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+                vertx.setTimer(5000, sleep2::complete);
+                return Promise.resolve(sleep2.future());
+            });
+
+            Long start = System.currentTimeMillis();
+
+            List<Object> timerIds = Promise
+                .allSettled(p1, p2)
+                .await();
+            Long end = System.currentTimeMillis();
+            System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
+            Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+            testContext.completeNow();
+        });
+    }
+
+    @Test
     void resolvePromiseAllSameTypeSettle(Vertx vertx, VertxTestContext testContext) {
         ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
@@ -333,6 +387,33 @@ class PromiseAwaitTest {
 
             Long timerId = (Long) Promise
                 .race(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                .await();
+            Long end = System.currentTimeMillis();
+            System.out.println("!!!!" + start + ":" + end + ":" + timerId);
+            Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId == 0);
+            testContext.completeNow();
+        });
+    }
+
+    @Test
+    void resolvePromiseRaceDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+            var p1 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+                vertx.setTimer(3000, sleep1::complete);
+                return Promise.resolve(sleep1.future());
+            });
+
+            var p2 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+                vertx.setTimer(5000, sleep2::complete);
+                return Promise.resolve(sleep2.future());
+            });
+
+            Long start = System.currentTimeMillis();
+
+            Long timerId = (Long) Promise
+                .race(p1, p2)
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println("!!!!" + start + ":" + end + ":" + timerId);
@@ -497,6 +578,36 @@ class PromiseAwaitTest {
             try {
                 Object timerId = Promise
                     .any(Promise.resolve(sleep1.future()), Promise.resolve(sleep2.future()))
+                    .await();
+                Long end = System.currentTimeMillis();
+                Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);
+                testContext.completeNow();
+            } catch (Exception error) {
+                Assertions.fail();
+            }
+        });
+    }
+
+    @Test
+    void resolvePromiseAnyDefer(Vertx vertx, VertxTestContext testContext) {
+        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+            var p1 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
+                vertx.setTimer(3000, sleep1::complete);
+                return Promise.resolve(sleep1.future());
+            });
+
+            var p2 = Promise.deferResolve().thenPromise(() -> {
+                io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
+                vertx.setTimer(5000, sleep2::complete);
+                return Promise.resolve(sleep2.future());
+            });
+
+            Long start = System.currentTimeMillis();
+
+            try {
+                Object timerId = Promise
+                    .any(p1, p2)
                     .await();
                 Long end = System.currentTimeMillis();
                 Assertions.assertTrue(end - start > 2900 && end - start < 3500 && timerId instanceof Long);

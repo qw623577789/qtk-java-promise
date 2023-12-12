@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -32,7 +33,8 @@ public class Promise {
         private Future<T> future;
 
         // 只有当执行await、async、block
-        private io.vertx.core.Promise deferPromise;
+        @Builder.Default
+        private List<io.vertx.core.Promise> deferPromises = new ArrayList<>();
 
         /**
          * 协程等待结果
@@ -57,7 +59,7 @@ public class Promise {
                 // 执行await并阻塞等待结果返回
                 return Future.<T>future(promise -> vertx.createVirtualThreadContext().runOnContext(v -> {
                         try {
-                            if (deferPromise != null) deferPromise.complete();
+                            if (!deferPromises.isEmpty()) deferPromises.forEach(io.vertx.core.Promise::complete);
                             promise.complete(Future.await(future));
                         } catch (Throwable error) {
                             promise.fail(new RuntimeException(error));
@@ -67,7 +69,7 @@ public class Promise {
                     .get();
 
             } else {
-                if (deferPromise != null) deferPromise.complete();
+                if (!deferPromises.isEmpty()) deferPromises.forEach(io.vertx.core.Promise::complete);
                 return Future.await(future);
             }
         }
@@ -75,7 +77,7 @@ public class Promise {
         //公共
         public Async<Void> then(Consumer<T> thenFunc) {
             return Async.<Void>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         thenFunc.accept(lastValue);
@@ -90,7 +92,7 @@ public class Promise {
 
         public Async<Void> then(Runnable thenFunc) {
             return Async.<Void>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         thenFunc.run();
@@ -106,7 +108,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> then(Function<@NonNull T, NEW_T> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.apply(lastValue);
@@ -125,7 +127,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> then(Supplier<NEW_T> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.get();
@@ -145,7 +147,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenPromise(Function<T, Async<NEW_T>> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.apply(lastValue);
@@ -159,7 +161,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenPromise(Supplier<Async<NEW_T>> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         var secondValue = thenFunc.get();
@@ -173,7 +175,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenPromise(Async<NEW_T> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         return thenFunc.getFuture();
@@ -186,7 +188,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenFuture(Function<T, Future<NEW_T>> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         return thenFunc.apply(lastValue);
@@ -199,7 +201,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenFuture(Supplier<Future<NEW_T>> thenFunc) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         return thenFunc.get();
@@ -212,7 +214,7 @@ public class Promise {
 
         public <NEW_T> Async<NEW_T> thenFuture(Future<NEW_T> thenFuture) {
             return Async.<NEW_T>builder()
-                .deferPromise(deferPromise)
+                .deferPromises(deferPromises)
                 .future(future.compose(lastValue -> {
                     try {
                         return thenFuture;
@@ -226,7 +228,7 @@ public class Promise {
         // 阻塞等待结果（无限制等待）
         @SneakyThrows
         public T block() {
-            if (deferPromise != null) deferPromise.complete();
+            if (!deferPromises.isEmpty()) deferPromises.forEach(io.vertx.core.Promise::complete);
             try {
                 return future.toCompletionStage().toCompletableFuture().get();
             } catch (ExecutionException error) {
@@ -237,7 +239,7 @@ public class Promise {
         // 阻塞等待结果（设定超时）
         @SneakyThrows
         public T block(long timeout, TimeUnit unit) {
-            if (deferPromise != null) deferPromise.complete();
+            if (!deferPromises.isEmpty()) deferPromises.forEach(io.vertx.core.Promise::complete);
             try {
                 return future.toCompletionStage().toCompletableFuture().get(timeout, unit);
             } catch (ExecutionException error) {
@@ -299,13 +301,14 @@ public class Promise {
          */
         public Async<T> deferResolve() {
             // 创建一个promise，后续可以使用complete()触发
-            deferPromise = io.vertx.core.Promise.promise();
-            future = deferPromise.future();
+            var promise = io.vertx.core.Promise.<T>promise();
+            deferPromises.add(promise);
+            future = promise.future();
             return this;
         }
 
         public void async() {
-            if (deferPromise != null) deferPromise.complete();
+            if (!deferPromises.isEmpty()) deferPromises.forEach(io.vertx.core.Promise::complete);
         }
     }
 
@@ -326,15 +329,19 @@ public class Promise {
     }
 
     /**
-     * 【当前线程】异步等待Vertx.Future返回
+     * 异步等待Vertx.Future返回
      * Vertx.Future在是一旦定义就立即触发
      */
     public static <T> Async<T> resolve(Future<T> future) {
         return Async.<T>builder().future(future).build();
     }
 
+    private static <T> Async<T> resolve(Future<T> future, List<io.vertx.core.Promise> deferPromises) {
+        return Async.<T>builder().future(future).deferPromises(deferPromises).build();
+    }
+
     /**
-     * 【当前线程】异步等待Vertx.CompositeFuture返回，并将每个Vertx.Future结果按顺序放入List
+     * 异步等待Vertx.CompositeFuture返回，并将每个Vertx.Future结果按顺序放入List
      * 若想指定Vertx.CompositeFuture执行线程请使Promise.resolve(RunOn.xxx, () -> Promise.resolve(Vertx.CompositeFuture))
      */
 
@@ -356,7 +363,7 @@ public class Promise {
     }
 
     /**
-     * 【当前线程】包装一个lambda函数，当传入的参数(一个方法(Vertx.Handler))被调用时，返回结果值
+     * 包装一个lambda函数，当传入的参数(一个方法(Vertx.Handler))被调用时，返回结果值
      * 例如:Promise.<Long>resolve(doneCallback ->  Vertx.vertx().setTimer(3000, doneCallback))
      */
     public static <T> Async<T> resolve(Consumer<Handler<T>> consumer) {
@@ -376,7 +383,13 @@ public class Promise {
      * 若其中一个Promise抛错，则将终止等待所有Promise结果并立即抛出错误
      */
     public static <T> Async<List<T>> allSameType(List<Async<T>> promises) {
-        var futures = promises.stream().map(Async::getFuture).toList();
+        var deferPromises = new ArrayList<io.vertx.core.Promise>();
+        var futures = promises.stream()
+            .map(promise -> {
+                if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+                return promise.getFuture();
+            })
+            .toList();
 
         var newFuture = Future.<List<T>>future(promise -> Future.all(futures).onComplete(
             h -> {
@@ -391,7 +404,8 @@ public class Promise {
                 }
             }
         ));
-        return resolve(newFuture);
+
+        return resolve(newFuture, deferPromises);
     }
 
     /**
@@ -408,8 +422,12 @@ public class Promise {
      * 将等待所有Promise结果返回(无论是正常返回还是抛错)，返回列表里每个item为正常数据或者error
      */
     public static <T> Async<List<T>> allSettledSameType(List<Async<T>> promises) {
+        var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
-            .map(Async::getFuture)
+            .map(promise -> {
+                if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+                return promise.getFuture();
+            })
             .map(f -> f.recover(throwable -> throwable instanceof NoStackTraceThrowable ?
                 Future.succeededFuture((T) new RuntimeException(throwable.getMessage())) :
                 Future.succeededFuture((T) throwable))) //出错的future转为正确的
@@ -428,7 +446,7 @@ public class Promise {
                 }
             }
         ));
-        return resolve(newFuture);
+        return resolve(newFuture, deferPromises);
     }
 
     /**
@@ -444,8 +462,12 @@ public class Promise {
      * 并发执行多个【同类型Promise】，当其中某个Promise最先出结果时(正常返回或者抛错)，立即返回该结果。
      */
     public static <T> Async<T> raceSameType(List<Async<T>> promises) {
+        var deferPromises = new ArrayList<io.vertx.core.Promise>();
         var futures = promises.stream()
-            .map(Async::getFuture)
+            .map(promise -> {
+                if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+                return promise.getFuture();
+            })
             .map(f -> f.recover(throwable -> throwable instanceof NoStackTraceThrowable ?
                 Future.succeededFuture((T) new RuntimeException(throwable.getMessage())) :
                 Future.succeededFuture((T) throwable))) //出错的future转为正确的
@@ -483,7 +505,7 @@ public class Promise {
                 }
             }
         ));
-        return resolve(newFuture);
+        return resolve(newFuture, deferPromises);
     }
 
     /**
@@ -498,7 +520,13 @@ public class Promise {
      * 并发执行多个【同类型Promise】，当其中某个Promise出正常结果时(抛错则跳过，继续等待)，立即返回该结果
      */
     public static <T> Async<T> anySameType(List<Async<T>> promises) {
-        var futures = promises.stream().map(Async::getFuture).toList();
+        var deferPromises = new ArrayList<io.vertx.core.Promise>();
+        var futures = promises.stream()
+            .map(promise -> {
+                if (!promise.getDeferPromises().isEmpty()) deferPromises.addAll(promise.getDeferPromises());
+                return promise.getFuture();
+            })
+            .toList();
 
         var newFuture = Future.<T>future(promise -> Future.any(futures).onComplete(
             h -> {
@@ -524,7 +552,7 @@ public class Promise {
                 }
             }
         ));
-        return resolve(newFuture);
+        return resolve(newFuture, deferPromises);
     }
 
     /**

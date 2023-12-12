@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "team.qtk"
-version = "2.0.0"
+version = "2.0.1"
 
 
 repositories {
@@ -21,9 +21,7 @@ repositories {
 }
 
 java {
-    toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
+    sourceCompatibility = 21
 }
 
 ext {
