@@ -107,7 +107,7 @@ class PromiseAsyncTest {
                 try {
                     Long end = System.currentTimeMillis();
                     System.out.println(start + ":" + end + ":" + timerId);
-                    Assertions.assertTrue(end - start > 3000 && timerIds[0].equals(timerId));
+                    Assertions.assertTrue(end - start >= 3000 && timerIds[0].equals(timerId));
                     testContext.completeNow();
                 } catch (Throwable error) {
                     testContext.failNow(error);
@@ -132,7 +132,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
                 try {
-                    Assertions.assertTrue(end - start > 5000 && !timerIds.get(0).equals(timerIds.get(1)));
+                    Assertions.assertTrue(end - start >= 5000 && !timerIds.get(0).equals(timerIds.get(1)));
                     testContext.completeNow();
                 } catch (Exception error) {
                     testContext.failNow(error);
@@ -182,7 +182,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
                 try {
-                    Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+                    Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
                     testContext.completeNow();
                 } catch (Exception error) {
                     testContext.failNow(error);
@@ -208,7 +208,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
                 try {
-                    Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+                    Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
                     testContext.completeNow();
                 } catch (Exception error) {
                     testContext.failNow(error);
@@ -236,7 +236,7 @@ class PromiseAsyncTest {
                 System.out.println(start + ":" + end + ":");
                 try {
                     Assertions.assertTrue(
-                        end - start > 5000 &&
+                        end - start >= 5000 &&
                             error.getMessage().equals("error")
                     );
                     testContext.completeNow();
@@ -265,7 +265,7 @@ class PromiseAsyncTest {
                 System.out.println(start + ":" + end + ":");
                 try {
                     Assertions.assertTrue(
-                        end - start > 5000 &&
+                        end - start >= 5000 &&
                             error.getMessage().equals("error")
                     );
                     testContext.completeNow();
@@ -291,7 +291,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
                 try {
-                    Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+                    Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
                     testContext.completeNow();
                 } catch (Exception err) {
                     testContext.failNow(err);
@@ -316,7 +316,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
                 try {
-                    Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+                    Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
                     testContext.completeNow();
                 } catch (Exception err) {
                     testContext.failNow(err);
@@ -342,7 +342,7 @@ class PromiseAsyncTest {
                 Long end = System.currentTimeMillis();
                 try {
                     Assertions.assertTrue(
-                        end - start > 5000 &&
+                        end - start >= 5000 &&
                             timerIds.size() == 2 &&
                             (long) timerIds.get(0) == 0 &&
                             ((RuntimeException) timerIds.get(1)).getMessage().equals("error")

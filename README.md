@@ -13,7 +13,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'com.github.qw623577789:qtk-java-promise:2.0.2'
+    implementation 'com.github.qw623577789:qtk-java-promise:2.1.0'
 }
 ```
 
@@ -47,7 +47,7 @@ dependencies {
 - **<T> Async<T> reject(Throwable t)** 异步抛出自定义错误
 - Promise.resolve().then(xx).thenFuture(xx).thenPromise(xxx).doCatch(xxx).finally(xxx)
 - ``block()/block(long timeout, TimeUnit unit)``同步阻塞模式、``async()``异步非阻塞模式、``await()``异步阻塞模式
-
+- Promise.setGlobalVertx(Vertx vertx)、Promise.setVertx(Vertx vertx).xxx可以指定Vertx实例
 ## 用法
 
 更多例子可以看测试用例

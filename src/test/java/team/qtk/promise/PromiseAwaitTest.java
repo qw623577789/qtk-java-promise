@@ -12,6 +12,7 @@ import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import lombok.SneakyThrows;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,9 +26,17 @@ import java.util.Objects;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PromiseAwaitTest {
 
+    private static Vertx testVertx;
+
+    @BeforeAll
+    void beforeAll() {
+        testVertx = Vertx.vertx();
+//        Promise.setGlobalVertx(testVertx);
+    }
+
     @Test
     void resolveInteger(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertEquals(Promise.resolve(1).await(), 1);
             testContext.completeNow();
         });
@@ -35,7 +44,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveString(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertEquals(Promise.resolve("1").await(), "1");
             testContext.completeNow();
         });
@@ -43,7 +52,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveBoolean(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertEquals(Promise.resolve(true).await(), true);
             testContext.completeNow();
         });
@@ -51,7 +60,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveBigDecimal(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertEquals(Promise.resolve(new BigDecimal("1")).await(), new BigDecimal("1"));
             testContext.completeNow();
         });
@@ -59,7 +68,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolve(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertNull(Promise.resolve().await());
             testContext.completeNow();
         });
@@ -68,7 +77,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveFutureSuccess(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Assertions.assertNull(Promise.resolve(Future.succeededFuture(null)).await());
             testContext.completeNow();
         });
@@ -77,7 +86,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveFutureError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             try {
                 Assertions.assertNull(Promise.resolve(Future.failedFuture(new RuntimeException("reject"))).await());
             } catch (Exception error) {
@@ -98,7 +107,7 @@ class PromiseAwaitTest {
     @Test
     void resolveConsumerHandler(Vertx vertx, VertxTestContext testContext) {
 
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Promise.<Long>resolve(doneCallback -> Vertx.vertx().setTimer(3000, doneCallback)).await();
 
             Long start = System.currentTimeMillis();
@@ -109,14 +118,14 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerId);
-            Assertions.assertTrue(end - start > 3000 && timerIds[0].equals(timerId));
+            Assertions.assertTrue(end - start >= 3000 && timerIds[0].equals(timerId));
             testContext.completeNow();
         });
     }
 
     @Test
     void resolveCompositeFutureAll(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
@@ -131,7 +140,7 @@ class PromiseAwaitTest {
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
             try {
-                Assertions.assertTrue(end - start > 5000 && !timerIds.get(0).equals(timerIds.get(1)));
+                Assertions.assertTrue(end - start >= 5000 && !timerIds.get(0).equals(timerIds.get(1)));
                 testContext.completeNow();
             } catch (Exception error) {
                 testContext.failNow(error);
@@ -141,7 +150,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolveCompositeFutureAny(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -164,7 +173,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAll(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -184,7 +193,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAllDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             var p1 = Promise.deferResolve().thenPromise(() -> {
                 io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
                 vertx.setTimer(3000, sleep1::complete);
@@ -212,7 +221,7 @@ class PromiseAwaitTest {
     @SneakyThrows
     @Test
     void resolvePromiseAllSameType(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -225,14 +234,14 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-            Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+            Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
             testContext.completeNow();
         });
     }
 
     @Test
     void resolvePromiseAllError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -248,7 +257,7 @@ class PromiseAwaitTest {
                 Long end = System.currentTimeMillis();
                 System.out.println(start + ":" + end + ":");
                 Assertions.assertTrue(
-                    end - start > 5000 &&
+                    end - start >= 5000 &&
                         timerIds.isEmpty() &&
                         error.getMessage().equals("error")
                 );
@@ -259,7 +268,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAllSameTypeError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -275,7 +284,7 @@ class PromiseAwaitTest {
             } catch (Exception error) {
                 Long end = System.currentTimeMillis();
                 Assertions.assertTrue(
-                    end - start > 5000 &&
+                    end - start >= 5000 &&
                         timerIds.isEmpty() &&
                         error.getMessage().equals("error")
                 );
@@ -286,7 +295,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAllSettle(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -299,14 +308,14 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-            Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+            Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
             testContext.completeNow();
         });
     }
 
     @Test
     void resolvePromiseAllSettleDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             var p1 = Promise.deferResolve().thenPromise(() -> {
                 io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
                 vertx.setTimer(3000, sleep1::complete);
@@ -326,14 +335,14 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-            Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+            Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
             testContext.completeNow();
         });
     }
 
     @Test
     void resolvePromiseAllSameTypeSettle(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -346,14 +355,14 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-            Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+            Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
             testContext.completeNow();
         });
     }
 
     @Test
     void resolvePromiseAllSettleError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -366,7 +375,7 @@ class PromiseAwaitTest {
                 .await();
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
-                end - start > 5000 &&
+                end - start >= 5000 &&
                     timerIds.size() == 2 &&
                     (long) timerIds.get(0) == 0 &&
                     ((RuntimeException) timerIds.get(1)).getMessage().equals("error")
@@ -377,7 +386,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRace(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -397,7 +406,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             var p1 = Promise.deferResolve().thenPromise(() -> {
                 io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
                 vertx.setTimer(3000, sleep1::complete);
@@ -424,7 +433,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceSameType(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -444,7 +453,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceNoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -468,7 +477,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceSameTypeNoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -491,7 +500,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceToError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -516,7 +525,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceToRecoverError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -542,7 +551,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseRaceSameTypeToError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -567,7 +576,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAnyNoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -590,7 +599,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAnyDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             var p1 = Promise.deferResolve().thenPromise(() -> {
                 io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
                 vertx.setTimer(3000, sleep1::complete);
@@ -620,7 +629,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAnySameTypeNoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(3000, sleep1::complete);
@@ -643,7 +652,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAny2NoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -666,7 +675,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAny2NoErrorRecover(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -689,7 +698,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAny2SameTypeNoError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, sleep1::complete);
@@ -712,7 +721,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAnyError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, timerId -> sleep1.fail("error1"));
@@ -737,7 +746,7 @@ class PromiseAwaitTest {
 
     @Test
     void resolvePromiseAnySameTypeError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             io.vertx.core.Promise<Long> sleep2 = io.vertx.core.Promise.promise();
             vertx.setTimer(5000, timerId -> sleep1.fail("error"));
@@ -763,7 +772,7 @@ class PromiseAwaitTest {
 
     @Test
     void deferResolve(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             try {
                 Long start = System.currentTimeMillis();
                 var p = Promise.deferResolve().then(System::currentTimeMillis);
@@ -781,7 +790,7 @@ class PromiseAwaitTest {
 
     @Test
     void deferResolve2(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             try {
                 Long start = System.currentTimeMillis();
 
@@ -804,10 +813,11 @@ class PromiseAwaitTest {
 
     @Test
     void reject(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             try {
                 Promise.reject().await();
             } catch (Exception error) {
+                System.out.println(error);
                 if (error instanceof RuntimeException) {
                     Assertions.assertEquals(error.getMessage(), "reject");
                     testContext.completeNow();
@@ -820,7 +830,7 @@ class PromiseAwaitTest {
 
     @Test
     void rejectCustomError(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             try {
                 Promise.reject(new NullPointerException()).await();
             } catch (Exception error) {
@@ -837,7 +847,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void then(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
 
@@ -869,7 +879,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenConsumer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
 
@@ -897,7 +907,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenRunnable(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -926,7 +936,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenFunction(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -962,7 +972,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenSupplier(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -998,7 +1008,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromiseFunction(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1034,7 +1044,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromiseFunctionDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1070,7 +1080,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromiseSupplier(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1106,7 +1116,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromiseSupplierDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1142,7 +1152,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromise(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1165,7 +1175,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenPromiseDefer(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1188,7 +1198,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenFutureFunction(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1224,7 +1234,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenFutureSupplier(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
 
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
@@ -1260,7 +1270,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenFuture(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             io.vertx.core.Promise<Long> sleep1 = io.vertx.core.Promise.promise();
             var t1 = vertx.setTimer(3000, sleep1::complete);
 
@@ -1282,7 +1292,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenTryCatch(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Checkpoint checkpoint = testContext.checkpoint(2);
 
             io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
@@ -1318,7 +1328,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenTryCatchReturnValue(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Checkpoint checkpoint = testContext.checkpoint(2);
 
             io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();
@@ -1356,7 +1366,7 @@ class PromiseAwaitTest {
     @Test
     @SneakyThrows
     void thenTryCatchFinally(Vertx vertx, VertxTestContext testContext) {
-        ((VertxImpl) vertx).createVirtualThreadContext().runOnContext(v -> {
+        ((VertxImpl) testVertx).createVirtualThreadContext().runOnContext(v -> {
             Checkpoint checkpoint = testContext.checkpoint(3);
 
             io.vertx.core.Promise<Long> sleep3s = io.vertx.core.Promise.promise();

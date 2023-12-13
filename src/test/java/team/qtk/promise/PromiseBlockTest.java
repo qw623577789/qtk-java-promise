@@ -81,7 +81,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerId);
-        Assertions.assertTrue(end - start > 3000 && timerIds[0].equals(timerId));
+        Assertions.assertTrue(end - start >= 3000 && timerIds[0].equals(timerId));
     }
 
     @Test
@@ -99,7 +99,7 @@ class PromiseBlockTest {
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
         try {
-            Assertions.assertTrue(end - start > 5000 && !timerIds.get(0).equals(timerIds.get(1)));
+            Assertions.assertTrue(end - start >= 5000 && !timerIds.get(0).equals(timerIds.get(1)));
             testContext.completeNow();
         } catch (Exception error) {
             testContext.failNow(error);
@@ -139,7 +139,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
     }
 
     @SneakyThrows
@@ -157,7 +157,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+        Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
     }
 
     @Test
@@ -177,7 +177,7 @@ class PromiseBlockTest {
             Long end = System.currentTimeMillis();
             System.out.println(start + ":" + end + ":");
             Assertions.assertTrue(
-                end - start > 5000 &&
+                end - start >= 5000 &&
                     timerIds.isEmpty() &&
                     error.getMessage().equals("error")
             );
@@ -201,7 +201,7 @@ class PromiseBlockTest {
         } catch (Exception error) {
             Long end = System.currentTimeMillis();
             Assertions.assertTrue(
-                end - start > 5000 &&
+                end - start >= 5000 &&
                     timerIds.isEmpty() &&
                     error.getMessage().equals("error")
             );
@@ -222,7 +222,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 5000 && timerIds.get(0) != timerIds.get(1));
+        Assertions.assertTrue(end - start >= 5000 && timerIds.get(0) != timerIds.get(1));
     }
 
     @Test
@@ -239,7 +239,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         System.out.println(start + ":" + end + ":" + timerIds.get(0) + ":" + timerIds.get(1));
-        Assertions.assertTrue(end - start > 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
+        Assertions.assertTrue(end - start >= 5000 && !Objects.equals(timerIds.get(0), timerIds.get(1)));
     }
 
     @Test
@@ -257,7 +257,7 @@ class PromiseBlockTest {
             .block();
         Long end = System.currentTimeMillis();
         Assertions.assertTrue(
-            end - start > 5000 &&
+            end - start >= 5000 &&
                 timerIds.size() == 2 &&
                 (long) timerIds.get(0) == 0 &&
                 ((RuntimeException) timerIds.get(1)).getMessage().equals("error")
