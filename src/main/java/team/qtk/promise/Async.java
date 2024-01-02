@@ -258,6 +258,7 @@ public class Async<T> {
      */
     public Async<T> doCatch(Consumer<Throwable> errorFunc) {
         return Async.<T>builder().vertx(vertx)
+            .deferPromises(deferPromises)
             .future(future.otherwise(throwable -> { //用otherwise不用recover
                 try {
                     errorFunc.accept(throwable);
@@ -278,6 +279,7 @@ public class Async<T> {
      */
     public Async<T> doCatch(Function<Throwable, T> errorFunc) {
         return Async.<T>builder().vertx(vertx)
+            .deferPromises(deferPromises)
             .future(future.otherwise(throwable -> { //用otherwise不用recover原因是，recover报错的话也会回调otherwise
                 try {
                     return errorFunc.apply(throwable);

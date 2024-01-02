@@ -765,6 +765,31 @@ class PromiseAsyncTest {
     }
 
     @Test
+    @SneakyThrows
+    void deferResolve3(VertxTestContext testContext) {
+
+        Long start = System.currentTimeMillis();
+        var p = Promise.deferResolve().then(System::currentTimeMillis);
+        Thread.sleep(1000);
+        p.then(end -> {
+                System.out.println(start + ":" + end + ":" + (end - start));
+                try {
+                    Assertions.assertTrue(end - start > 900);
+
+                    testContext.completeNow();
+                } catch (Exception err) {
+                    testContext.failNow(err);
+                }
+            })
+            .doCatch(error -> {
+                System.out.println(error);
+            })
+            .doFinally(() -> {
+                System.out.println("finally");
+            }).async();
+    }
+
+    @Test
     void reject(VertxTestContext testContext) {
 
         Promise.reject()
